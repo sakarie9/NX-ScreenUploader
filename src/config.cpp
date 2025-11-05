@@ -40,6 +40,12 @@ bool Config::refresh() {
         m_uploadMode = UploadMode::Compressed;  // 默认值
     }
 
+    // 读取检查间隔配置（秒），默认1秒，最低1秒
+    m_checkIntervalSeconds = reader.GetInteger("general", "check_interval", 1);
+    if (m_checkIntervalSeconds < 1) {
+        m_checkIntervalSeconds = 1;
+    }
+
     if (reader.HasSection("title_screenshots")) {
         const auto keys = reader.Keys("title_screenshots");
         m_titleScreenshots.reserve(keys.size());

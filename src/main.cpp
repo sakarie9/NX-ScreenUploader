@@ -193,11 +193,17 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
                           : uploadMode == UploadMode::Original ? "original"
                                                                : "both";
     Logger::get().info() << "Upload mode: " << modeStr << std::endl;
+
+    // 获取检查间隔配置
+    const int checkInterval = Config::get().getCheckIntervalSeconds();
+    const u64 sleepDuration =
+        static_cast<u64>(checkInterval) * 1'000'000'000ULL;
+    Logger::get().info() << "Check interval: " << checkInterval << " second(s)"
+                         << std::endl;
     Logger::get().close();
 
     constexpr std::string_view separator = "=============================";
     constexpr int maxRetries = 3;
-    constexpr u64 sleepDuration = 1'000'000'000ULL;  // 1秒
 
     while (true) {
         std::string tmpItem = getLastAlbumItem();

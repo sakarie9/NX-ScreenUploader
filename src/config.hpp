@@ -32,6 +32,9 @@ class Config {
     [[nodiscard]] constexpr UploadMode getUploadMode() const noexcept {
         return m_uploadMode;
     }
+    [[nodiscard]] constexpr int getCheckIntervalSeconds() const noexcept {
+        return m_checkIntervalSeconds;
+    }
 
     bool error{false};
 
@@ -47,6 +50,7 @@ class Config {
     bool m_uploadMovies{true};
     bool m_keepLogs{false};
     UploadMode m_uploadMode{UploadMode::Compressed};  // 默认使用压缩模式
+    int m_checkIntervalSeconds{1};  // 检查间隔（秒），默认1秒，最低1秒
     std::unordered_map<std::string, bool> m_titleScreenshots;
     std::unordered_map<std::string, bool> m_titleMovies;
 };
