@@ -186,7 +186,6 @@ function(add_nsp_target target)
     set(__PFS0_COMMAND ${BUILD_PFS0} ${CMAKE_CURRENT_BINARY_DIR}/exefs ${CMAKE_CURRENT_BINARY_DIR}/${target}.nsp)
 
     add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${target}.nsp
-            PRE_BUILD
             COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/exefs
             COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_BINARY_DIR}/${target}.nso ${CMAKE_CURRENT_BINARY_DIR}/exefs/main
             COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_BINARY_DIR}/${target}.npdm ${CMAKE_CURRENT_BINARY_DIR}/exefs/main.npdm

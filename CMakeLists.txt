@@ -4,7 +4,7 @@
 #
 # libnx CMake template for Nintendo Switch homebrew development.
 
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.12)
 project(sys-screen-capture-uploader)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
@@ -48,13 +48,16 @@ set(VERSION_MICRO 2)
 set(APP_VERSION
         "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_MICRO}")
 
+set(USE_CPP_20 ON)
+
 if (NOT DEFINED CMAKE_BUILD_TYPE_INIT)
     set(CMAKE_BUILD_TYPE_INIT Release)
 endif ()
 
 set(CMAKE_C_STANDARD 99)
-if (USE_CPP_17)
-    set(CMAKE_CXX_STANDARD 17)
+if (USE_CPP_20)
+    set(CXX_STANDARD_REQUIRED)
+    set(CMAKE_CXX_STANDARD 20)
 else ()
     set(CMAKE_CXX_STANDARD 11)
 endif ()
