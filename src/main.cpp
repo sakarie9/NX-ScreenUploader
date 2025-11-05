@@ -3,15 +3,16 @@
 #include <netinet/in.h>
 #include <switch.h>
 
+#include <array>
 #include <iostream>
+#include <string>
+#include <string_view>
 
 #include "config.hpp"
 #include "logger.hpp"
 #include "project.h"
 #include "upload.hpp"
 #include "utils.hpp"
-
-using namespace std;
 
 #define INNER_HEAP_SIZE 0x50000
 
@@ -30,15 +31,15 @@ void __appExit(void);
 
 // we override libnx internals to do a minimal init
 void __libnx_initheap(void) {
-    void *addr = nx_inner_heap;
+    void* addr = nx_inner_heap;
     size_t size = nx_inner_heap_size;
 
-    extern char *fake_heap_start;
-    extern char *fake_heap_end;
+    extern char* fake_heap_start;
+    extern char* fake_heap_end;
 
     // setup newlib fake heap
-    fake_heap_start = (char *)addr;
-    fake_heap_end = (char *)addr + size;
+    fake_heap_start = (char*)addr;
+    fake_heap_end = (char*)addr + size;
 }
 
 void __appInit(void) {
@@ -122,23 +123,28 @@ void __appExit(void) {
 
 void initLogger(bool truncate) {
     if (truncate) {
-        Logger::get().get().truncate();
+        Logger::get().truncate();
     }
 
-    Logger::get().none() << "=============================" << endl;
-    Logger::get().none() << "=============================" << endl;
-    Logger::get().none() << "=============================" << endl;
-    Logger::get().none() << "sys-screen-capture-uploader v" << APP_VERSION
-                         << " is starting..." << endl;
+    constexpr std::string_view separator = "=============================";
+    auto& logger = Logger::get().none();
+    logger << separator << std::endl
+           << separator << std::endl
+           << separator << std::endl
+           << "sys-screen-capture-uploader v" << APP_VERSION
+           << " is starting..." << std::endl;
 }
 
-int main(int argc, char **argv) {
-    mkdir("sdmc:/config", 0700);
-    mkdir("sdmc:/config/sys-screen-capture-uploader", 0700);
+int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
+    constexpr std::string_view configDir = "sdmc:/config";
+    constexpr std::string_view appConfigDir =
+        "sdmc:/config/sys-screen-capture-uploader";
+
+    mkdir(configDir.data(), 0700);
+    mkdir(appConfigDir.data(), 0700);
 
     initLogger(false);
-    Config::get().refresh();
-    if (Config::get().error) {
+    if (!Config::get().refresh()) {
         return 0;
     }
 
@@ -148,63 +154,81 @@ int main(int argc, char **argv) {
 
     curl_global_init(CURL_GLOBAL_ALL);
 
-    Result rc;
     CapsAlbumStorage storage;
     FsFileSystem imageFs;
-    rc = capsaGetAutoSavingStorage(&storage);
+
+    Result rc = capsaGetAutoSavingStorage(&storage);
     if (!R_SUCCEEDED(rc)) {
         Logger::get().error() << "capsaGetAutoSavingStorage() failed: " << rc
-                              << ", exiting..." << endl;
+                              << ", exiting..." << std::endl;
         return 0;
     }
-    rc = fsOpenImageDirectoryFileSystem(&imageFs, (FsImageDirectoryId)storage);
+
+    rc = fsOpenImageDirectoryFileSystem(
+        &imageFs, static_cast<FsImageDirectoryId>(storage));
     if (!R_SUCCEEDED(rc)) {
         Logger::get().error()
             << "fsOpenImageDirectoryFileSystem() failed: " << rc
-            << ", exiting..." << endl;
+            << ", exiting..." << std::endl;
         return 0;
     }
-    int mountRes = fsdevMountDevice("img", imageFs);
+
+    const int mountRes = fsdevMountDevice("img", imageFs);
     if (mountRes < 0) {
         Logger::get().error()
-            << "fsdevMountDevice() failed, exiting..." << endl;
+            << "fsdevMountDevice() failed, exiting..." << std::endl;
         return 0;
     }
-    Logger::get().info() << "Mounted " << (storage ? "SD" : "NAND")
-                         << " storage" << endl;
 
-    string tmpItem, lastItem = getLastAlbumItem();
-    Logger::get().info() << "Current last item: " << lastItem << endl;
+    Logger::get().info() << "Mounted " << (storage ? "SD" : "NAND")
+                         << " storage" << std::endl;
+
+    std::string lastItem = getLastAlbumItem();
+    Logger::get().info() << "Current last item: " << lastItem << std::endl;
     Logger::get().close();
 
-    size_t fs;
+    constexpr std::string_view separator = "=============================";
+    constexpr std::array<bool, 2> compressionModes{true, false};
+    constexpr int maxRetries = 3;
+    constexpr u64 sleepDuration =
+        1'000'000'000ULL;  // 1秒，使用数字分隔符提高可读性
+
     while (true) {
-        tmpItem = getLastAlbumItem();
-        if (lastItem.compare(tmpItem) < 0) {
-            fs = filesize(tmpItem);
+        std::string tmpItem = getLastAlbumItem();
+
+        if (lastItem < tmpItem) {
+            const size_t fs = filesize(tmpItem);
+
             if (fs > 0) {
-                Logger::get().info() << "=============================" << endl;
-                Logger::get().info() << "New item found: " << tmpItem << endl;
-                Logger::get().info() << "Filesize: " << fs << endl;
+                auto& logger = Logger::get().info();
+                logger << separator << std::endl
+                       << "New item found: " << tmpItem << std::endl
+                       << "Filesize: " << fs << std::endl;
+
                 bool sent = false;
-                for (bool compression : {true, false}) {                                        
-                    for (int i = 0; i < 3; i++) {                    
-                      sent = sendFileToServer(tmpItem, fs, compression);
-                      if (sent) {
-                          break;
-                      }
+                for (const bool compression : compressionModes) {
+                    if (sent) break;
+
+                    for (int i = 0; i < maxRetries; ++i) {
+                        sent = sendFileToServer(tmpItem, fs, compression);
+                        if (sent) {
+                            break;
+                        }
                     }
                 }
-                lastItem = tmpItem;
+
+                lastItem = std::move(tmpItem);
+
                 if (!sent) {
                     Logger::get().error()
-                        << "Unable to send file after 3 retries" << endl;
+                        << "Unable to send file after " << maxRetries
+                        << " retries" << std::endl;
                 }
             }
 
             Logger::get().close();
         }
 
-        svcSleepThread(1e+9);
+        svcSleepThread(sleepDuration);
     }
 }

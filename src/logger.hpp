@@ -1,38 +1,43 @@
 #pragma once
 
+#include <array>
 #include <ctime>
 #include <fstream>
 #include <iostream>
+#include <string_view>
 
-using namespace std;
+#ifdef DEBUG
+#undef DEBUG
+#endif
 
-enum LogLevel {
+enum class LogLevel : uint8_t {
     DEBUG = 0,
     INFO = 1,
     ERROR = 2,
     NONE = 10,
 };
 
-const string LOGFILE_PATH = "sdmc:/config/sys-screen-capture-uploader/logs.txt";
+inline constexpr std::string_view LOGFILE_PATH =
+    "sdmc:/config/sys-screen-capture-uploader/logs.txt";
 
 class Logger {
    public:
-    static Logger &get() {
+    static Logger& get() noexcept {
         static Logger instance;
         return instance;
     }
 
     void truncate() {
         close();
-        m_file.open(LOGFILE_PATH, ios::trunc);
+        m_file.open(LOGFILE_PATH.data(), std::ios::trunc);
         close();
     }
 
-    void setLevel(LogLevel level) { m_level = level; }
+    constexpr void setLevel(LogLevel level) noexcept { m_level = level; }
 
     void open() {
         if (!m_file.is_open()) {
-            m_file.open(LOGFILE_PATH, ios::app);
+            m_file.open(LOGFILE_PATH.data(), std::ios::app);
         }
     }
 
@@ -42,73 +47,91 @@ class Logger {
         }
     }
 
-    bool isEnabled(LogLevel level) { return level >= m_level; }
-
-    ostream &debug() {
-        if (isEnabled(DEBUG)) {
-            open();
-            m_file << getPrefix(DEBUG);
-            return m_file;
-        }
-        return cout;
+    [[nodiscard]] constexpr bool isEnabled(LogLevel level) const noexcept {
+        return level >= m_level;
     }
 
-    ostream &info() {
-        if (isEnabled(INFO)) {
+    std::ostream& debug() {
+        if (isEnabled(LogLevel::DEBUG)) {
             open();
-            m_file << getPrefix(INFO);
+            m_file << getPrefix(LogLevel::DEBUG);
             return m_file;
         }
-        return cout;
+        return std::cout;
     }
 
-    ostream &error() {
-        if (isEnabled(ERROR)) {
+    std::ostream& info() {
+        if (isEnabled(LogLevel::INFO)) {
             open();
-            m_file << getPrefix(ERROR);
+            m_file << getPrefix(LogLevel::INFO);
             return m_file;
         }
-        return cout;
+        return std::cout;
     }
 
-    ostream &none() {
-        if (isEnabled(NONE)) {
+    std::ostream& error() {
+        if (isEnabled(LogLevel::ERROR)) {
             open();
-            m_file << getPrefix(NONE);
+            m_file << getPrefix(LogLevel::ERROR);
             return m_file;
         }
-        return cout;
+        return std::cout;
+    }
+
+    std::ostream& none() {
+        if (isEnabled(LogLevel::NONE)) {
+            open();
+            m_file << getPrefix(LogLevel::NONE);
+            return m_file;
+        }
+        return std::cout;
     }
 
    private:
-    static string get_time() {
+    Logger() = default;
+    Logger(const Logger&) = delete;
+    Logger& operator=(const Logger&) = delete;
+
+    static std::string get_time() {
         u64 now;
         timeGetCurrentTime(TimeType_LocalSystemClock, &now);
-        time_t nowt = now;
-        char buf[sizeof "2011-10-08 07:07:09 UTC"];
-        strftime(buf, sizeof buf, "%F %T UTC", gmtime(&nowt));
-        return buf;
+        const time_t nowt = now;
+        std::array<char, 32> buf{};
+        std::strftime(buf.data(), buf.size(), "%F %T UTC", std::gmtime(&nowt));
+        return std::string(buf.data());
     }
 
-    static string getPrefix(LogLevel lvl) {
-        string prefix;
+    static std::string getPrefix(LogLevel lvl) {
+        constexpr std::string_view debugPrefix = "[DEBUG] ";
+        constexpr std::string_view infoPrefix = "[INFO ] ";
+        constexpr std::string_view errorPrefix = "[ERROR] ";
+        constexpr std::string_view defaultPrefix = "[     ] ";
+
+        std::string_view prefix;
         switch (lvl) {
-            case DEBUG:
-                prefix = "[DEBUG] ";
+            case LogLevel::DEBUG:
+                prefix = debugPrefix;
                 break;
-            case INFO:
-                prefix = "[INFO ] ";
+            case LogLevel::INFO:
+                prefix = infoPrefix;
                 break;
-            case ERROR:
-                prefix = "[ERROR] ";
+            case LogLevel::ERROR:
+                prefix = errorPrefix;
                 break;
             default:
-                prefix = "[     ] ";
+                prefix = defaultPrefix;
                 break;
         }
-        return prefix + "[" + get_time() + "] ";
+
+        std::string result;
+        result.reserve(prefix.size() + 32);
+        result += prefix;
+        result += "[";
+        result += get_time();
+        result += "] ";
+        return result;
     }
 
-    ofstream m_file;
-    LogLevel m_level = INFO;
+    std::ofstream m_file;
+    LogLevel m_level{LogLevel::INFO};
 };

@@ -1,80 +1,91 @@
 #include "utils.hpp"
 
 #include <algorithm>
-#include <cstring>
+#include <array>
 #include <fstream>
 #include <iostream>
+#include <ranges>
 #include <string>
 #include <vector>
 
-string getAlbumPath() { return "img:/"; }
+namespace {
+constexpr std::string_view ALBUM_PATH = "img:/";
 
-bool isDigitsOnly(const string &str) {
-    return str.find_first_not_of("0123456789") == string::npos;
+constexpr bool isDigitsOnly(std::string_view str) noexcept {
+    return std::ranges::all_of(str,
+                               [](char c) { return c >= '0' && c <= '9'; });
 }
 
-string getLastAlbumItem() {
-    vector<string> years, months, days, files;
-    string albumPath = getAlbumPath();
+template <size_t ExpectedLen>
+[[nodiscard]] bool isValidDigitPath(const fs::directory_entry& entry) noexcept {
+    if (!entry.is_directory()) return false;
+    const auto filename = entry.path().filename().string();
+    return filename.length() == ExpectedLen && isDigitsOnly(filename);
+}
+}  // namespace
+
+std::string getLastAlbumItem() {
+    std::vector<std::string> years, months, days, files;
+
+    const std::string albumPath{ALBUM_PATH};
     if (!fs::is_directory(albumPath))
         return "<No album directory: " + albumPath + ">";
 
-    for (auto &entry : fs::directory_iterator(albumPath))
-        if (entry.is_directory() && isDigitsOnly(entry.path().filename()) &&
-            entry.path().filename().string().length() == 4)
-            years.push_back(entry.path());
+    years.reserve(8);
+    for (const auto& entry : fs::directory_iterator(albumPath)) {
+        if (isValidDigitPath<4>(entry))
+            years.emplace_back(entry.path().string());
+    }
     if (years.empty()) return "<No years in " + albumPath + ">";
-    sort(years.begin(), years.end());
+    std::ranges::sort(years);
 
-    for (auto &entry : fs::directory_iterator(years.back()))
-        if (entry.is_directory() && isDigitsOnly(entry.path().filename()) &&
-            entry.path().filename().string().length() == 2)
-            months.push_back(entry.path());
+    months.reserve(12);
+    for (const auto& entry : fs::directory_iterator(years.back())) {
+        if (isValidDigitPath<2>(entry))
+            months.emplace_back(entry.path().string());
+    }
     if (months.empty()) return "<No months in " + years.back() + ">";
-    sort(months.begin(), months.end());
+    std::ranges::sort(months);
 
-    for (auto &entry : fs::directory_iterator(months.back()))
-        if (entry.is_directory() && isDigitsOnly(entry.path().filename()) &&
-            entry.path().filename().string().length() == 2)
-            days.push_back(entry.path());
+    days.reserve(31);
+    for (const auto& entry : fs::directory_iterator(months.back())) {
+        if (isValidDigitPath<2>(entry))
+            days.emplace_back(entry.path().string());
+    }
     if (days.empty()) return "<No days in " + months.back() + ">";
-    sort(days.begin(), days.end());
+    std::ranges::sort(days);
 
-    for (auto &entry : fs::directory_iterator(days.back()))
-        if (entry.is_regular_file()) files.push_back(entry.path());
+    files.reserve(32);
+    for (const auto& entry : fs::directory_iterator(days.back())) {
+        if (entry.is_regular_file()) files.emplace_back(entry.path().string());
+    }
     if (files.empty()) return "<No screenshots in " + days.back() + ">";
-    sort(files.begin(), files.end());
+    std::ranges::sort(files);
 
     return files.back();
 }
 
-size_t filesize(string &path) {
-    streampos begin, end;
-    ifstream f(path, ios::binary);
-    begin = f.tellg();
-    f.seekg(0, ios::end);
-    end = f.tellg();
-    f.close();
-    return end - begin;
+size_t filesize(std::string_view path) {
+    std::ifstream f(path.data(), std::ios::binary | std::ios::ate);
+    if (!f) return 0;
+    return static_cast<size_t>(f.tellg());
 }
 
-string url_encode(const string &value) {
-    ostringstream escaped;
-    escaped.fill('0');
-    escaped << hex;
+std::string url_encode(std::string_view value) {
+    std::string result;
+    result.reserve(value.size() * 3);  // 最坏情况预留
 
-    for (char c : value) {
-        // Keep alphanumeric and other accepted characters intact
-        if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~') {
-            escaped << c;
-            continue;
+    constexpr std::string_view hexChars = "0123456789ABCDEF";
+
+    for (const unsigned char c : value) {
+        if (std::isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~') {
+            result.push_back(c);
+        } else {
+            result.push_back('%');
+            result.push_back(hexChars[c >> 4]);
+            result.push_back(hexChars[c & 0x0F]);
         }
-
-        // Any other characters are percent-encoded
-        escaped << uppercase;
-        escaped << '%' << setw(2) << int((unsigned char)c);
-        escaped << nouppercase;
     }
 
-    return escaped.str();
+    return result;
 }

@@ -1,10 +1,7 @@
 #pragma once
 #include <switch.h>
 
-#include <string>
+#include <string_view>
 
-#include "config.hpp"
-
-using namespace std;
-
-bool sendFileToServer(string &path, size_t size, bool compression);
+[[nodiscard]] bool sendFileToServer(std::string_view path, size_t size,
+                                    bool compression);

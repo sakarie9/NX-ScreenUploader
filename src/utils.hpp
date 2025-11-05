@@ -1,12 +1,11 @@
 #pragma once
 
 #include <filesystem>
+#include <string>
+#include <string_view>
 
-#include "config.hpp"
+namespace fs = std::filesystem;
 
-using namespace std;
-namespace fs = filesystem;
-
-string getLastAlbumItem();
-size_t filesize(string &path);
-string url_encode(const string &value);
+[[nodiscard]] std::string getLastAlbumItem();
+[[nodiscard]] size_t filesize(std::string_view path);
+[[nodiscard]] std::string url_encode(std::string_view value);

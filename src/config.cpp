@@ -3,19 +3,16 @@
 #include <inih.h>
 
 #include <iostream>
-#include <set>
 
 #include "logger.hpp"
 #include "utils.hpp"
 
-using namespace std;
-
 bool Config::refresh() {
     INIReader reader("sdmc:/config/sys-screen-capture-uploader/config.ini");
 
-    if (reader.ParseError() != 0) {
+    if (const int parseError = reader.ParseError(); parseError != 0) {
         Logger::get().error()
-            << "Config parse error " << reader.ParseError() << endl;
+            << "Config parse error " << parseError << std::endl;
         error = true;
         return false;
     }
@@ -29,33 +26,46 @@ bool Config::refresh() {
     m_keepLogs = reader.GetBoolean("general", "keep_logs", false);
 
     if (reader.HasSection("title_screenshots")) {
-        for (auto &tid : reader.Keys("title_screenshots")) {
-            m_titleScreenshots[tid] =
-                reader.GetBoolean("title_screenshots", tid, true);
+        const auto keys = reader.Keys("title_screenshots");
+        m_titleScreenshots.reserve(keys.size());
+        for (const auto& tid : keys) {
+            m_titleScreenshots.emplace(
+                tid, reader.GetBoolean("title_screenshots", tid, true));
         }
     }
 
     if (reader.HasSection("title_movies")) {
-        for (auto &tid : reader.Keys("title_movies")) {
-            m_titleMovies[tid] = reader.GetBoolean("title_movies", tid, true);
+        const auto keys = reader.Keys("title_movies");
+        m_titleMovies.reserve(keys.size());
+        for (const auto& tid : keys) {
+            m_titleMovies.emplace(tid,
+                                  reader.GetBoolean("title_movies", tid, true));
         }
     }
 
     return true;
 }
 
-string Config::getTelegramBotToken() { return m_telegramBotToken; }
+std::string_view Config::getTelegramBotToken() const noexcept {
+    return m_telegramBotToken;
+}
 
-string Config::getTelegramChatId() { return m_telegramChatId; }
+std::string_view Config::getTelegramChatId() const noexcept {
+    return m_telegramChatId;
+}
 
-bool Config::uploadAllowed(string &tid, bool isMovie) {
+bool Config::uploadAllowed(std::string_view tid, bool isMovie) const noexcept {
     if (isMovie) {
-        if (m_titleMovies.count(tid) > 0) return m_titleMovies[tid];
+        if (const auto it = m_titleMovies.find(std::string(tid));
+            it != m_titleMovies.end()) {
+            return it->second;
+        }
         return m_uploadMovies;
     } else {
-        if (m_titleScreenshots.count(tid) > 0) return m_titleScreenshots[tid];
+        if (const auto it = m_titleScreenshots.find(std::string(tid));
+            it != m_titleScreenshots.end()) {
+            return it->second;
+        }
         return m_uploadScreenshots;
     }
 }
-
-bool Config::keepLogs() { return m_keepLogs; }
