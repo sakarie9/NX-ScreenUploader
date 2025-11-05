@@ -1,8 +1,16 @@
-# sys-screen-capture-uploader
+# NX-ScreenUploader
 
-`sys-screen-capture-uploader` automatically sends screen captures (both images and videos) taken on your Nintendo Switch to a Telegram chat so that you can more easily access and share them.
+`NX-ScreenUploader` automatically sends screen captures (both images and videos) taken on your Nintendo Switch to a Telegram chat so that you can more easily access and share them.
 
-This project was forked from [bakatrouble/sys-screenuploader](https://github.com/bakatrouble/sys-screenuploader). It differs from the original project because no intermediate server is needed. The screen captures are directly uploaded to the Telegram API. However, creating a Telegram bot is necessary (see [Setup](#setup) below).
+This project was forked from [bakatrouble/sys-screenuploader](https://github.com/bakatrouble/sys-screenuploader) and [yuno-kojo/sys-screen-capture-uploader](https://github.com/yuno-kojo/sys-screen-capture-uploader). It differs from the original project because no intermediate server is needed. The screen captures are directly uploaded to the Telegram API. However, creating a Telegram bot is necessary (see [Setup](#setup) below).
+
+## Features
+
+- Automatically uploads screenshots and screen recordings taken on the Switch to a Telegram chat
+- Supports uploading both images and videos
+- Supports uploading in compressed (photo/video) or original (document) or both modes
+- Custom Telegram Bot API URL support (for reverse proxy)
+- Custom new screen capture check interval support
 
 ## Requirements
 
@@ -18,8 +26,8 @@ To use this homebrew, you must create your own Telegram bot. It will send your S
 
 After getting these two values, you are ready to configure the homebrew and install it to your Switch:
 
-1. Download [the latest release](https://github.com/musse/sys-screen-capture-uploader/releases/latest) and extract it somewhere.
-2. Open `config/sys-screen-capture-uploader/config.ini` and set `telegram_bot_token` and `telegram_chat_id` to the values you have noted down.
+1. Download [the latest release](https://github.com/sakarie9/NX-ScreenUploader) and extract it somewhere.
+2. Open `config/sys-screen-uploader/config.ini` and set `telegram_bot_token` and `telegram_chat_id` to the values you have noted down.
 3. Copy the release contents to the root of your SD card.
 
 ## Development
@@ -28,7 +36,7 @@ After getting these two values, you are ready to configure the homebrew and inst
 
 You can install [`devkitpro-pacman`](https://github.com/devkitPro/pacman/releases/latest) and then install the needed dependencies with:
 
-```
+```bash
 sudo dkp-pacman -Syu
 sudo dkp-pacman -S devkitA64 switch-dev switch-curl switch-zlib switch-mbedtls
 ```
@@ -42,7 +50,7 @@ Check the following links for additional details on how to set up your environme
 
 To build the project, you also need [`CMake`](https://cmake.org/). Create a `build` directory on the project root, `cd` into it and run:
 
-```
+```bash
 cmake .. -DCMAKE_TOOLCHAIN_FILE=../devkita64-libnx.cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 ```
 
@@ -55,5 +63,6 @@ If you have an FTP server running on your Switch (such as [sys-ftpd-light](https
 ## Credits
 
 - [bakatrouble/sys-screenuploader](https://github.com/bakatrouble/sys-screenuploader): project from which this project was forked;
+- [yuno-kojo/sys-screen-capture-uploader](https://github.com/yuno-kojo/sys-screen-capture-uploader): project from which this project was forked;
 - [vbe0201/libnx-template](https://github.com/vbe0201/libnx-template/): homebrew template project;
 - [SunTheCourier/SwitchPresence-Rewritten](https://github.com/SunTheCourier/SwitchPresence-Rewritten): initial sysmodule code.

@@ -1,3 +1,0 @@
-.clang-tidy ---
-Checks: >-
-  readability-braces-around-statements

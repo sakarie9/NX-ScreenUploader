@@ -1,8 +1,6 @@
 {
     "recommendations": [
-        "ms-vscode.cpptools",
-        "twxs.cmake",
-        "notskm.clang-tidy"
+        "ms-vscode.cpptools"
     ]
 }
   
