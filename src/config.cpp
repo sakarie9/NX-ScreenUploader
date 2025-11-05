@@ -28,15 +28,15 @@ bool Config::refresh() {
     m_uploadMovies = reader.GetBoolean("general", "upload_movies", true);
     m_keepLogs = reader.GetBoolean("general", "keep_logs", false);
 
-    if (reader.Sections().count("title_screenshots") > 0) {
-        for (auto &tid : reader.Fields("title_screenshots")) {
+    if (reader.HasSection("title_screenshots")) {
+        for (auto &tid : reader.Keys("title_screenshots")) {
             m_titleScreenshots[tid] =
                 reader.GetBoolean("title_screenshots", tid, true);
         }
     }
 
-    if (reader.Sections().count("title_movies") > 0) {
-        for (auto &tid : reader.Fields("title_movies")) {
+    if (reader.HasSection("title_movies")) {
+        for (auto &tid : reader.Keys("title_movies")) {
             m_titleMovies[tid] = reader.GetBoolean("title_movies", tid, true);
         }
     }
