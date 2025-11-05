@@ -23,6 +23,7 @@ class Config {
 
     [[nodiscard]] std::string_view getTelegramBotToken() const noexcept;
     [[nodiscard]] std::string_view getTelegramChatId() const noexcept;
+    [[nodiscard]] std::string_view getTelegramApiUrl() const noexcept;
     [[nodiscard]] bool uploadAllowed(std::string_view tid,
                                      bool isMovie) const noexcept;
     [[nodiscard]] constexpr bool keepLogs() const noexcept {
@@ -41,6 +42,7 @@ class Config {
 
     std::string m_telegramBotToken;
     std::string m_telegramChatId;
+    std::string m_telegramApiUrl;
     bool m_uploadScreenshots{true};
     bool m_uploadMovies{true};
     bool m_keepLogs{false};

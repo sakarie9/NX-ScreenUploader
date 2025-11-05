@@ -114,7 +114,8 @@ bool sendFileToServer(std::string_view path, size_t size, bool compression) {
     // 构建URL
     std::string url;
     url.reserve(128);
-    url = "https://api.telegram.org/bot";
+    url = Config::get().getTelegramApiUrl();
+    url += "/bot";
     url += Config::get().getTelegramBotToken();
     url += "/";
     url += telegramMethod;

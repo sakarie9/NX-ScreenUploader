@@ -20,6 +20,8 @@ bool Config::refresh() {
     m_telegramBotToken =
         reader.Get("general", "telegram_bot_token", "undefined");
     m_telegramChatId = reader.Get("general", "telegram_chat_id", "undefined");
+    m_telegramApiUrl =
+        reader.Get("general", "telegram_api_url", "https://api.telegram.org");
     m_uploadScreenshots =
         reader.GetBoolean("general", "upload_screenshots", true);
     m_uploadMovies = reader.GetBoolean("general", "upload_movies", true);
@@ -65,6 +67,10 @@ std::string_view Config::getTelegramBotToken() const noexcept {
 
 std::string_view Config::getTelegramChatId() const noexcept {
     return m_telegramChatId;
+}
+
+std::string_view Config::getTelegramApiUrl() const noexcept {
+    return m_telegramApiUrl;
 }
 
 bool Config::uploadAllowed(std::string_view tid, bool isMovie) const noexcept {
