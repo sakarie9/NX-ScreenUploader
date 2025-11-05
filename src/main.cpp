@@ -129,10 +129,9 @@ void initLogger(bool truncate) {
     constexpr std::string_view separator = "=============================";
     auto& logger = Logger::get().none();
     logger << separator << std::endl
-           << separator << std::endl
-           << separator << std::endl
-           << "sys-screen-uploader v" << APP_VERSION
-           << " is starting..." << std::endl;
+           << "sys-screen-uploader v" << APP_VERSION << " is starting..."
+           << std::endl
+           << separator << std::endl;
 }
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
@@ -207,6 +206,9 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
 
     while (true) {
         std::string tmpItem = getLastAlbumItem();
+
+        // auto& logger = Logger::get().info();
+        // logger << "ping" << std::endl;
 
         if (lastItem < tmpItem) {
             const size_t fs = filesize(tmpItem);
