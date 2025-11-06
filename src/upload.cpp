@@ -84,10 +84,6 @@ bool sendFileToServer(std::string_view path, size_t size, bool compression) {
         return false;
     }
 
-    const std::string contentType{fileTypeInfo.contentType};
-    const std::string copyName{fileTypeInfo.copyName};
-    const std::string telegramMethod{fileTypeInfo.telegramMethod};
-
     FILE* f = std::fopen(filePath.c_str(), "rb");
     if (f == nullptr) {
         Logger::get().error() << "fopen() failed" << std::endl;
@@ -98,10 +94,11 @@ bool sendFileToServer(std::string_view path, size_t size, bool compression) {
     struct curl_httppost* formpost = nullptr;
     struct curl_httppost* lastptr = nullptr;
 
-    curl_formadd(&formpost, &lastptr, CURLFORM_COPYNAME, copyName.c_str(),
-                 CURLFORM_FILENAME, filePath.c_str(), CURLFORM_STREAM, &ui,
+    curl_formadd(&formpost, &lastptr, CURLFORM_COPYNAME,
+                 fileTypeInfo.copyName.data(), CURLFORM_FILENAME,
+                 filePath.c_str(), CURLFORM_STREAM, &ui,
                  CURLFORM_CONTENTSLENGTH, size, CURLFORM_CONTENTTYPE,
-                 contentType.c_str(), CURLFORM_END);
+                 fileTypeInfo.contentType.data(), CURLFORM_END);
 
     CURL* curl = curl_easy_init();
     if (!curl) {
@@ -118,7 +115,7 @@ bool sendFileToServer(std::string_view path, size_t size, bool compression) {
     url += "/bot";
     url += Config::get().getTelegramBotToken();
     url += "/";
-    url += telegramMethod;
+    url += fileTypeInfo.telegramMethod;
     url += "?chat_id=";
     url += Config::get().getTelegramChatId();
 
@@ -129,8 +126,9 @@ bool sendFileToServer(std::string_view path, size_t size, bool compression) {
     curl_easy_setopt(curl, CURLOPT_READFUNCTION, uploadReadFunction);
     curl_easy_setopt(curl, CURLOPT_HTTPPOST, formpost);
     curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
-    curl_easy_setopt(curl, CURLOPT_BUFFERSIZE, 0x2000L);
-    curl_easy_setopt(curl, CURLOPT_UPLOAD_BUFFERSIZE, 0x2000L);
+    // Reduced buffer sizes from 8KB each to 4KB each to save memory
+    curl_easy_setopt(curl, CURLOPT_BUFFERSIZE, 0x1000L);
+    curl_easy_setopt(curl, CURLOPT_UPLOAD_BUFFERSIZE, 0x1000L);
 
     const CURLcode res = curl_easy_perform(curl);
     std::fclose(f);

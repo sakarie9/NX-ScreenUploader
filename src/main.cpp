@@ -14,7 +14,8 @@
 #include "upload.hpp"
 #include "utils.hpp"
 
-#define INNER_HEAP_SIZE 0x40'000
+// 0x40000 will oom
+#define INNER_HEAP_SIZE 0x50000
 
 extern "C" {
 
