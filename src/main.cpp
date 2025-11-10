@@ -14,7 +14,8 @@
 #include "upload.hpp"
 #include "utils.hpp"
 
-// 0x40000 will oom
+// Reduce heap size for memory optimization
+// 0x40000 (256KB) will oom, 0x50000 (320KB) is minimum stable
 #define INNER_HEAP_SIZE 0x50000
 
 extern "C" {
@@ -24,8 +25,13 @@ extern u32 __start__;
 // Sysmodules should not use applet*.
 u32 __nx_applet_type = AppletType_None;
 
-// Sysmodules will normally only want to use one FS session.
+// Minimize fs resource usage for memory optimization
 u32 __nx_fs_num_sessions = 1;
+u32 __nx_fsdev_direntry_cache_size = 1;
+bool __nx_fsdev_support_cwd = false;
+
+// Minimize system resource allocation
+u32 __nx_nv_transfermem_size = 0;  // We don't use NV services
 
 void __libnx_init_time(void);
 void __libnx_initheap(void);
@@ -34,19 +40,19 @@ void __appExit(void);
 
 // Newlib heap configuration function (makes malloc/free work).
 void __libnx_initheap(void) {
-    static u8 inner_heap[INNER_HEAP_SIZE];
-    extern void* fake_heap_start;
-    extern void* fake_heap_end;
+    static char g_innerheap[INNER_HEAP_SIZE];
 
-    // Configure the newlib heap.
-    fake_heap_start = inner_heap;
-    fake_heap_end = inner_heap + sizeof(inner_heap);
+    extern char* fake_heap_start;
+    extern char* fake_heap_end;
+
+    fake_heap_start = &g_innerheap[0];
+    fake_heap_end   = &g_innerheap[sizeof g_innerheap];
 }
 
-#define TCP_TX_BUF_SIZE (1024 * 4)
-#define TCP_RX_BUF_SIZE (1024 * 4)
-#define TCP_TX_BUF_SIZE_MAX (1024 * 64)
-#define TCP_RX_BUF_SIZE_MAX (1024 * 64)
+#define TCP_TX_BUF_SIZE (1024 * 2)
+#define TCP_RX_BUF_SIZE (1024 * 2)
+#define TCP_TX_BUF_SIZE_MAX (1024 * 16)
+#define TCP_RX_BUF_SIZE_MAX (1024 * 16)
 #define UDP_TX_BUF_SIZE (0)
 #define UDP_RX_BUF_SIZE (0)
 #define SB_EFFICIENCY (1)

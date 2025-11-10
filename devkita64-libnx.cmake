@@ -53,8 +53,8 @@ set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
 
 add_definitions(-D__SWITCH__)
 set(ARCH "-march=armv8-a+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -MMD -MP -Wall -O3 -ffunction-sections ${ARCH}")
-set(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} ${CMAKE_CXX_FLAGS} -fno-exceptions -fno-rtti")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -MMD -MP -g -Wall -O2 -ffunction-sections -fdata-sections -ffast-math -fomit-frame-pointer -fno-stack-protector ${ARCH}")
+set(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} ${CMAKE_CXX_FLAGS} -fno-exceptions -fno-rtti -fvisibility-inlines-hidden")
 set(CMAKE_EXE_LINKER_FLAGS_INIT "${ARCH} -ftls-model=local-exec -L${LIBNX}/lib -L${PORTLIBS}/lib")
 set(CMAKE_MODULE_LINKER_FLAGS_INIT ${CMAKE_EXE_LINKER_FLAGS_INIT})
 

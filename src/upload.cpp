@@ -108,16 +108,21 @@ bool sendFileToServer(std::string_view path, size_t size, bool compression) {
         return false;
     }
 
-    // 构建URL
+    // 构建URL - more conservative memory reservation
     std::string url;
-    url.reserve(128);
-    url = Config::get().getTelegramApiUrl();
+    const auto apiUrl = Config::get().getTelegramApiUrl();
+    const auto botToken = Config::get().getTelegramBotToken();
+    const auto chatId = Config::get().getTelegramChatId();
+
+    url.reserve(apiUrl.size() + botToken.size() + chatId.size() +
+                fileTypeInfo.telegramMethod.size() + 20);
+    url = apiUrl;
     url += "/bot";
-    url += Config::get().getTelegramBotToken();
+    url += botToken;
     url += "/";
     url += fileTypeInfo.telegramMethod;
     url += "?chat_id=";
-    url += Config::get().getTelegramChatId();
+    url += chatId;
 
     Logger::get().debug() << "URL is " << url << std::endl;
 

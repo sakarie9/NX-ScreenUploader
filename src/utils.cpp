@@ -25,59 +25,58 @@ template <size_t ExpectedLen>
 }  // namespace
 
 std::string getLastAlbumItem() {
-    const std::string albumPath{ALBUM_PATH};
-    if (!fs::is_directory(albumPath))
-        return "<No album directory: " + albumPath + ">";
+    constexpr std::string_view albumPath = ALBUM_PATH;
+    if (!fs::is_directory(albumPath)) return "<No album directory: img:/>";
 
     // 找最大的年份目录
-    std::string maxYear;
+    fs::path maxYear;
     for (const auto& entry : fs::directory_iterator(albumPath)) {
         if (isValidDigitPath<4>(entry)) {
-            const auto path = entry.path().string();
+            const auto& path = entry.path();
             if (maxYear.empty() || path > maxYear) {
                 maxYear = path;
             }
         }
     }
-    if (maxYear.empty()) return "<No years in " + albumPath + ">";
+    if (maxYear.empty()) return "<No years in img:/>";
 
     // 找最大的月份目录
-    std::string maxMonth;
+    fs::path maxMonth;
     for (const auto& entry : fs::directory_iterator(maxYear)) {
         if (isValidDigitPath<2>(entry)) {
-            const auto path = entry.path().string();
+            const auto& path = entry.path();
             if (maxMonth.empty() || path > maxMonth) {
                 maxMonth = path;
             }
         }
     }
-    if (maxMonth.empty()) return "<No months in " + maxYear + ">";
+    if (maxMonth.empty()) return "<No months in year>";
 
     // 找最大的日期目录
-    std::string maxDay;
+    fs::path maxDay;
     for (const auto& entry : fs::directory_iterator(maxMonth)) {
         if (isValidDigitPath<2>(entry)) {
-            const auto path = entry.path().string();
+            const auto& path = entry.path();
             if (maxDay.empty() || path > maxDay) {
                 maxDay = path;
             }
         }
     }
-    if (maxDay.empty()) return "<No days in " + maxMonth + ">";
+    if (maxDay.empty()) return "<No days in month>";
 
     // 找最大的文件
-    std::string maxFile;
+    fs::path maxFile;
     for (const auto& entry : fs::directory_iterator(maxDay)) {
         if (entry.is_regular_file()) {
-            const auto path = entry.path().string();
+            const auto& path = entry.path();
             if (maxFile.empty() || path > maxFile) {
                 maxFile = path;
             }
         }
     }
-    if (maxFile.empty()) return "<No screenshots in " + maxDay + ">";
+    if (maxFile.empty()) return "<No screenshots in day>";
 
-    return maxFile;
+    return maxFile.string();
 }
 
 size_t filesize(std::string_view path) {
@@ -88,7 +87,8 @@ size_t filesize(std::string_view path) {
 
 std::string url_encode(std::string_view value) {
     std::string result;
-    result.reserve(value.size() * 3);  // 最坏情况预留
+    // More conservative reservation - typically most chars don't need encoding
+    result.reserve(value.size() + (value.size() / 4));
 
     constexpr std::string_view hexChars = "0123456789ABCDEF";
 
