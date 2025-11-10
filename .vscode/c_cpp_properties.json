@@ -8,8 +8,7 @@
                 "${env:DEVKITPRO}/libnx/include/**",
                 "${env:DEVKITPRO}/portlibs/switch/include/**",
                 "src/**",
-                "include/**",
-                "${workspaceFolder}/build/_deps/m**/include"
+                "${workspaceFolder}/build/_deps/**/include"
             ],
             "defines": [
                 "SWITCH",
