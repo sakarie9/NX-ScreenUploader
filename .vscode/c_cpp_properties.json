@@ -1,21 +1,26 @@
 {
-  "configurations": [
-    {
-      "name": "DKP aarch64",
-      "includePath": [
-        "${env:DEVKITPRO}/devkitA64/aarch64-none-elf/include/**",
-        "${env:DEVKITPRO}/devkitA64/lib/gcc/aarch64-none-elf/15.1.0/include/**",
-        "${env:DEVKITPRO}/libnx/include/**",
-        "${env:DEVKITPRO}/portlibs/switch/include/**",
-        "src/**",
-        "include/**"
-      ],
-      "defines": ["SWITCH", "__SWITCH__", "DEBUG"],
-      "compilerPath": "${env:DEVKITPRO}/devkitA64/bin/aarch64-none-elf-g++",
-      "cStandard": "c11",
-      "cppStandard": "c++20",
-      "intelliSenseMode": "gcc-arm64"
-    }
-  ],
-  "version": 4
+    "configurations": [
+        {
+            "name": "DKP aarch64",
+            "includePath": [
+                "${env:DEVKITPRO}/devkitA64/aarch64-none-elf/include/**",
+                "${env:DEVKITPRO}/devkitA64/lib/gcc/aarch64-none-elf/15.1.0/include/**",
+                "${env:DEVKITPRO}/libnx/include/**",
+                "${env:DEVKITPRO}/portlibs/switch/include/**",
+                "src/**",
+                "include/**",
+                "${workspaceFolder}/build/_deps/m**/include"
+            ],
+            "defines": [
+                "SWITCH",
+                "__SWITCH__",
+                "DEBUG"
+            ],
+            "compilerPath": "${env:DEVKITPRO}/devkitA64/bin/aarch64-none-elf-g++",
+            "cStandard": "c11",
+            "cppStandard": "c++20",
+            "intelliSenseMode": "gcc-arm64"
+        }
+    ],
+    "version": 4
 }

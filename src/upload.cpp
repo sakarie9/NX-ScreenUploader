@@ -68,7 +68,10 @@ bool sendFileToServer(std::string_view path, size_t size, bool compression) {
     Logger::get().debug() << "Title ID: " << tid << std::endl;
 
     const bool isMovie = path.back() == '4';
-    if (!Config::get().uploadAllowed(tid, isMovie)) {
+    // 根据全局配置判断是否允许上传
+    const bool shouldUpload = isMovie ? Config::get().uploadMovies()
+                                      : Config::get().uploadScreenshots();
+    if (!shouldUpload) {
         Logger::get().info() << "Skipping upload for " << path << std::endl;
         return true;
     }

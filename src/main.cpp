@@ -127,7 +127,7 @@ void initLogger(bool truncate) {
     Logger::get().setLevel(LogLevel::DEBUG);
 
     constexpr std::string_view separator = "=============================";
-    auto& logger = Logger::get().none();
+    auto logger = Logger::get().none();
     logger << std::endl
            << separator << std::endl
            << APP_TITLE " v" << APP_VERSION << " is starting..." << std::endl
@@ -213,7 +213,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
             const size_t fs = filesize(tmpItem);
 
             if (fs > 0) {
-                auto& logger = Logger::get().info();
+                auto logger = Logger::get().info();
                 logger << separator << std::endl
                        << "New item found: " << tmpItem << std::endl
                        << "Filesize: " << fs << std::endl;

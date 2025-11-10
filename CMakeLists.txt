@@ -10,6 +10,7 @@ project(NX-ScreenUploader)
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 include(options)
 include(utils)
+include(FetchContent)
 
 find_package(LIBNX REQUIRED)
 find_package(CURL REQUIRED)
@@ -26,6 +27,28 @@ endif ()
 
 include_directories(${PROJECT_BINARY_DIR})
 include_directories(${PORTLIBS}/include)
+include_directories(${LIBNX}/include)
+
+function(fetch_minini)
+    FetchContent_Declare(minIni
+        GIT_REPOSITORY https://github.com/ITotalJustice/minIni-nx.git
+        GIT_TAG 6e952b6
+    )
+
+    set(NINTENDO_SWITCH ON)
+
+    set(MININI_USE_NX ${NINTENDO_SWITCH})
+    set(MININI_USE_STDIO NOT ${NINTENDO_SWITCH})
+    set(MININI_USE_FLOAT OFF)
+
+    FetchContent_MakeAvailable(minIni)
+    
+    # Get the source directory and add it to include paths
+    FetchContent_GetProperties(minIni SOURCE_DIR MININI_SOURCE_DIR)
+    include_directories(${MININI_SOURCE_DIR}/include)
+endfunction(fetch_minini)
+
+fetch_minini()
 
 # Replace this with the name of your application
 set(HOMEBREW_APP "NX-ScreenUploader")
@@ -74,10 +97,9 @@ include(nx-utils)
 
 cmake_info("Building ${APP_TITLE} version ${APP_VERSION}.")
 
-include(include/CMakeLists.txt)
 include(src/CMakeLists.txt)
 
-target_link_libraries(${HOMEBREW_APP}.elf ${CURL_LIBRARIES} ${ZLIB_LIBRARIES} switch::libnx)
+target_link_libraries(${HOMEBREW_APP}.elf ${CURL_LIBRARIES} ${ZLIB_LIBRARIES} switch::libnx minIni)
 set_target_properties(${HOMEBREW_APP}.elf PROPERTIES
         LINKER_LANGUAGE CXX # Replace this with C if you have C source files
         LINK_FLAGS "-specs=${LIBNX}/switch.specs -march=armv8-a+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE -Wl,--as-needed -Wl,--gc-sections -Wl,--strip-all -Wl,-Map,.map -flto -fuse-linker-plugin")

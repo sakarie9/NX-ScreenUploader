@@ -1,36 +1,51 @@
 #include "config.hpp"
 
-#include <inih.h>
+#include <minIni.h>
 
-#include <iostream>
+#include <cstring>
 
 #include "logger.hpp"
 #include "project.h"
 #include "utils.hpp"
 
-bool Config::refresh() {
-    INIReader reader("sdmc:/config/" APP_TITLE "/config.ini");
+// 配置文件路径
+static constexpr const char* CONFIG_PATH =
+    "sdmc:/config/" APP_TITLE "/config.ini";
 
-    if (const int parseError = reader.ParseError(); parseError != 0) {
-        Logger::get().error()
-            << "Config parse error " << parseError << std::endl;
-        error = true;
-        return false;
+// Helper 函数：读取字符串，最多 maxlen 字符
+static std::string ini_get_string(const char* section, const char* key,
+                                  const char* default_value,
+                                  size_t maxlen = 256) {
+    std::string result(maxlen, '\0');
+    int len = ini_gets(section, key, default_value, result.data(), maxlen,
+                       CONFIG_PATH);
+    if (len > 0) {
+        result.resize(len);
+    } else {
+        result = default_value;
     }
+    return result;
+}
 
+bool Config::refresh() {
+    // 读取telegram配置
     m_telegramBotToken =
-        reader.Get("general", "telegram_bot_token", "undefined");
-    m_telegramChatId = reader.Get("general", "telegram_chat_id", "undefined");
-    m_telegramApiUrl =
-        reader.Get("general", "telegram_api_url", "https://api.telegram.org");
+        ini_get_string("general", "telegram_bot_token", "undefined");
+    m_telegramChatId =
+        ini_get_string("general", "telegram_chat_id", "undefined");
+    m_telegramApiUrl = ini_get_string("general", "telegram_api_url",
+                                      "https://api.telegram.org");
+
+    // 读取上传类型配置
     m_uploadScreenshots =
-        reader.GetBoolean("general", "upload_screenshots", true);
-    m_uploadMovies = reader.GetBoolean("general", "upload_movies", true);
-    m_keepLogs = reader.GetBoolean("general", "keep_logs", false);
+        ini_getbool("general", "upload_screenshots", 1, CONFIG_PATH) != 0;
+    m_uploadMovies =
+        ini_getbool("general", "upload_movies", 1, CONFIG_PATH) != 0;
+    m_keepLogs = ini_getbool("general", "keep_logs", 0, CONFIG_PATH) != 0;
 
     // 读取上传模式配置: compressed, original, both (默认为compressed)
-    const std::string uploadModeStr =
-        reader.Get("general", "upload_mode", "compressed");
+    std::string uploadModeStr =
+        ini_get_string("general", "upload_mode", "compressed");
     if (uploadModeStr == "compressed") {
         m_uploadMode = UploadMode::Compressed;
     } else if (uploadModeStr == "original") {
@@ -42,27 +57,10 @@ bool Config::refresh() {
     }
 
     // 读取检查间隔配置（秒），默认1秒，最低1秒
-    m_checkIntervalSeconds = reader.GetInteger("general", "check_interval", 1);
+    m_checkIntervalSeconds =
+        (int)ini_getl("general", "check_interval", 1, CONFIG_PATH);
     if (m_checkIntervalSeconds < 1) {
         m_checkIntervalSeconds = 1;
-    }
-
-    if (reader.HasSection("title_screenshots")) {
-        const auto keys = reader.Keys("title_screenshots");
-        m_titleScreenshots.reserve(keys.size());
-        for (const auto& tid : keys) {
-            m_titleScreenshots.emplace(
-                tid, reader.GetBoolean("title_screenshots", tid, true));
-        }
-    }
-
-    if (reader.HasSection("title_movies")) {
-        const auto keys = reader.Keys("title_movies");
-        m_titleMovies.reserve(keys.size());
-        for (const auto& tid : keys) {
-            m_titleMovies.emplace(tid,
-                                  reader.GetBoolean("title_movies", tid, true));
-        }
     }
 
     return true;
@@ -78,20 +76,4 @@ std::string_view Config::getTelegramChatId() const noexcept {
 
 std::string_view Config::getTelegramApiUrl() const noexcept {
     return m_telegramApiUrl;
-}
-
-bool Config::uploadAllowed(std::string_view tid, bool isMovie) const noexcept {
-    if (isMovie) {
-        if (const auto it = m_titleMovies.find(std::string(tid));
-            it != m_titleMovies.end()) {
-            return it->second;
-        }
-        return m_uploadMovies;
-    } else {
-        if (const auto it = m_titleScreenshots.find(std::string(tid));
-            it != m_titleScreenshots.end()) {
-            return it->second;
-        }
-        return m_uploadScreenshots;
-    }
 }

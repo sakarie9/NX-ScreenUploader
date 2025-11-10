@@ -4,7 +4,6 @@
 
 #include <string>
 #include <string_view>
-#include <unordered_map>
 
 enum class UploadMode : uint8_t {
     Compressed = 0,  // 只上传压缩图
@@ -24,8 +23,12 @@ class Config {
     [[nodiscard]] std::string_view getTelegramBotToken() const noexcept;
     [[nodiscard]] std::string_view getTelegramChatId() const noexcept;
     [[nodiscard]] std::string_view getTelegramApiUrl() const noexcept;
-    [[nodiscard]] bool uploadAllowed(std::string_view tid,
-                                     bool isMovie) const noexcept;
+    [[nodiscard]] constexpr bool uploadScreenshots() const noexcept {
+        return m_uploadScreenshots;
+    }
+    [[nodiscard]] constexpr bool uploadMovies() const noexcept {
+        return m_uploadMovies;
+    }
     [[nodiscard]] constexpr bool keepLogs() const noexcept {
         return m_keepLogs;
     }
@@ -51,6 +54,4 @@ class Config {
     bool m_keepLogs{false};
     UploadMode m_uploadMode{UploadMode::Compressed};  // 默认使用压缩模式
     int m_checkIntervalSeconds{1};  // 检查间隔（秒），默认1秒，最低1秒
-    std::unordered_map<std::string, bool> m_titleScreenshots;
-    std::unordered_map<std::string, bool> m_titleMovies;
 };

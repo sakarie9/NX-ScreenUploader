@@ -1,9 +1,9 @@
 #include "utils.hpp"
 
+#include <sys/stat.h>
+
 #include <algorithm>
 #include <array>
-#include <fstream>
-#include <iostream>
 #include <ranges>
 #include <string>
 #include <vector>
@@ -80,9 +80,9 @@ std::string getLastAlbumItem() {
 }
 
 size_t filesize(std::string_view path) {
-    std::ifstream f(path.data(), std::ios::binary | std::ios::ate);
-    if (!f) return 0;
-    return static_cast<size_t>(f.tellg());
+    struct stat st;
+    if (stat(path.data(), &st) != 0) return 0;
+    return static_cast<size_t>(st.st_size);
 }
 
 std::string url_encode(std::string_view value) {
