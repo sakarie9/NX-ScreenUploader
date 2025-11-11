@@ -2,7 +2,7 @@
 
 `NX-ScreenUploader` automatically sends screen captures (both images and videos) taken on your Nintendo Switch to a Telegram chat so that you can more easily access and share them.
 
-This project was forked from [bakatrouble/sys-screenuploader](https://github.com/bakatrouble/sys-screenuploader) and [yuno-kojo/sys-screen-capture-uploader](https://github.com/yuno-kojo/sys-screen-capture-uploader). It differs from the original project because no intermediate server is needed. The screen captures are directly uploaded to the Telegram API. However, creating a Telegram bot is necessary (see [Setup](#setup) below).
+This project was forked from [bakatrouble/sys-screenuploader](https://github.com/bakatrouble/sys-screenuploader) and [musse/sys-screen-capture-uploader](https://github.com/musse/sys-screen-capture-uploader) and [yuno-kojo/sys-screen-capture-uploader](https://github.com/yuno-kojo/sys-screen-capture-uploader). It differs from the original project because no intermediate server is needed. The screen captures are directly uploaded to the Telegram API. However, creating a Telegram bot is necessary (see [Setup](#setup) below).
 
 ## Features
 
@@ -71,6 +71,7 @@ After building the project, you can generate a release by running `scripts/relea
 ## Credits
 
 - [bakatrouble/sys-screenuploader](https://github.com/bakatrouble/sys-screenuploader): project from which this project was forked;
+- [musse/sys-screen-capture-uploader](https://github.com/musse/sys-screen-capture-uploader): project from which this project was forked;
 - [yuno-kojo/sys-screen-capture-uploader](https://github.com/yuno-kojo/sys-screen-capture-uploader): project from which this project was forked;
 - [vbe0201/libnx-template](https://github.com/vbe0201/libnx-template/): homebrew template project;
 - [SunTheCourier/SwitchPresence-Rewritten](https://github.com/SunTheCourier/SwitchPresence-Rewritten): initial sysmodule code.
