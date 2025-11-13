@@ -4,11 +4,11 @@
 
 #include "project.h"
 
-// 配置文件路径
+// Configuration file path
 static constexpr const char* CONFIG_PATH =
     "sdmc:/config/" APP_TITLE "/config.ini";
 
-// Helper 函数：读取字符串，最多 maxlen 字符
+// Helper: read a string value with an upper bound of maxlen characters
 static std::string ini_get_string(const char* section, const char* key,
                                   const char* default_value,
                                   size_t maxlen = 256) {
@@ -24,7 +24,7 @@ static std::string ini_get_string(const char* section, const char* key,
 }
 
 bool Config::refresh() {
-    // 读取telegram配置
+    // Read Telegram configuration
     m_telegramBotToken =
         ini_get_string("general", "telegram_bot_token", "undefined");
     m_telegramChatId =
@@ -32,14 +32,14 @@ bool Config::refresh() {
     m_telegramApiUrl = ini_get_string("general", "telegram_api_url",
                                       "https://api.telegram.org");
 
-    // 读取上传类型配置
+    // Read which file types to upload
     m_uploadScreenshots =
         ini_getbool("general", "upload_screenshots", 1, CONFIG_PATH) != 0;
     m_uploadMovies =
         ini_getbool("general", "upload_movies", 1, CONFIG_PATH) != 0;
     m_keepLogs = ini_getbool("general", "keep_logs", 0, CONFIG_PATH) != 0;
 
-    // 读取上传模式配置: compressed, original, both (默认为compressed)
+    // Read upload mode: compressed, original, or both (default: compressed)
     std::string uploadModeStr =
         ini_get_string("general", "upload_mode", "compressed");
     if (uploadModeStr == "compressed") {
@@ -49,10 +49,10 @@ bool Config::refresh() {
     } else if (uploadModeStr == "both") {
         m_uploadMode = UploadMode::Both;
     } else {
-        m_uploadMode = UploadMode::Compressed;  // 默认值
+        m_uploadMode = UploadMode::Compressed;  // Fallback default
     }
 
-    // 读取检查间隔配置（秒），默认3秒，最低1秒
+    // Read check interval (seconds), default 3s, minimum 1s
     m_checkIntervalSeconds =
         (int)ini_getl("general", "check_interval", 3, CONFIG_PATH);
     if (m_checkIntervalSeconds < 1) {

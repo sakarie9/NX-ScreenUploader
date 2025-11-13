@@ -6,9 +6,9 @@
 #include <string_view>
 
 enum class UploadMode : uint8_t {
-    Compressed = 0,  // 只上传压缩图
-    Original = 1,    // 只上传原图
-    Both = 2         // 上传两者（先压缩，失败则原图）
+    Compressed = 0,  // Upload only compressed images
+    Original = 1,    // Upload only original images
+    Both = 2  // Upload both (try compressed first, then original on failure)
 };
 
 class Config {
@@ -52,6 +52,8 @@ class Config {
     bool m_uploadScreenshots{true};
     bool m_uploadMovies{true};
     bool m_keepLogs{false};
-    UploadMode m_uploadMode{UploadMode::Compressed};  // 默认使用压缩模式
-    int m_checkIntervalSeconds{1};  // 检查间隔（秒），默认1秒，最低1秒
+    UploadMode m_uploadMode{
+        UploadMode::Compressed};  // Default to compressed mode
+    int m_checkIntervalSeconds{
+        3};  // Check interval (seconds), default 3s, minimum 1s
 };

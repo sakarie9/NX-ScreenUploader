@@ -25,7 +25,7 @@ std::string getLastAlbumItem() {
     constexpr std::string_view albumPath = ALBUM_PATH;
     if (!fs::is_directory(albumPath)) return "<No album directory: img:/>";
 
-    // 找最大的年份目录
+    // Find the largest year directory
     fs::path maxYear;
     for (const auto& entry : fs::directory_iterator(albumPath)) {
         if (isValidDigitPath<4>(entry)) {
@@ -37,7 +37,7 @@ std::string getLastAlbumItem() {
     }
     if (maxYear.empty()) return "<No years in img:/>";
 
-    // 找最大的月份目录
+    // Find the largest month directory
     fs::path maxMonth;
     for (const auto& entry : fs::directory_iterator(maxYear)) {
         if (isValidDigitPath<2>(entry)) {
@@ -49,7 +49,7 @@ std::string getLastAlbumItem() {
     }
     if (maxMonth.empty()) return "<No months in year>";
 
-    // 找最大的日期目录
+    // Find the largest day directory
     fs::path maxDay;
     for (const auto& entry : fs::directory_iterator(maxMonth)) {
         if (isValidDigitPath<2>(entry)) {
@@ -61,7 +61,7 @@ std::string getLastAlbumItem() {
     }
     if (maxDay.empty()) return "<No days in month>";
 
-    // 找最大的文件
+    // Find the latest file (lexicographically largest)
     fs::path maxFile;
     for (const auto& entry : fs::directory_iterator(maxDay)) {
         if (entry.is_regular_file()) {

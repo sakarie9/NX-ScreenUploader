@@ -168,18 +168,18 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
     Logger::get().info() << "Mounted " << (storage ? "SD" : "NAND")
                          << " storage" << std::endl;
 
-    // 获取初始的最后一个文件（用于对比）
+    // Get the initial last file (for comparison)
     std::string lastItem = getLastAlbumItem();
     Logger::get().info() << "Current last item: " << lastItem << std::endl;
 
-    // 根据配置确定上传模式
+    // Determine upload mode based on configuration
     const UploadMode uploadMode = Config::get().getUploadMode();
     const char* modeStr = uploadMode == UploadMode::Compressed ? "compressed"
                           : uploadMode == UploadMode::Original ? "original"
                                                                : "both";
     Logger::get().info() << "Upload mode: " << modeStr << std::endl;
 
-    // 获取检查间隔配置
+    // Get check interval configuration
     const int checkInterval = Config::get().getCheckIntervalSeconds();
     const u64 sleepDuration =
         static_cast<u64>(checkInterval) * 1'000'000'000ULL;
@@ -204,10 +204,10 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
 
                 bool sent = false;
 
-                // 根据配置模式决定上传策略
+                // Decide upload strategy based on configured mode
                 switch (uploadMode) {
                     case UploadMode::Compressed:
-                        // 只尝试压缩上传
+                        // Try compressed upload only
                         for (int retry = 0; retry < maxRetries && !sent;
                              ++retry) {
                             sent = sendFileToServer(tmpItem, fs, true);
@@ -215,7 +215,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
                         break;
 
                     case UploadMode::Original:
-                        // 只尝试原图上传
+                        // Try original upload only
                         for (int retry = 0; retry < maxRetries && !sent;
                              ++retry) {
                             sent = sendFileToServer(tmpItem, fs, false);
@@ -223,7 +223,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
                         break;
 
                     case UploadMode::Both:
-                        // 先尝试压缩，失败则尝试原图
+                        // Try compressed first; if it fails, try original
                         for (int retry = 0; retry < maxRetries && !sent;
                              ++retry) {
                             sent = sendFileToServer(tmpItem, fs, true);
@@ -243,7 +243,8 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
                         << " retries, skipping..." << std::endl;
                 }
 
-                // 无论成功与否都更新lastItem，避免无限重试同一文件
+                // Update lastItem regardless of success to avoid retrying the
+                // same file forever
                 lastItem = std::move(tmpItem);
             }
 

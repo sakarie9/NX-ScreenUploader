@@ -58,7 +58,7 @@ constexpr FileTypeInfo getFileTypeInfo(std::string_view extension,
 }  // namespace
 
 bool sendFileToServer(std::string_view path, size_t size, bool compression) {
-    // 提取Title ID (倒数36个字符中的32个字符)
+    // Extract Title ID (32 chars from the last 36 chars of the path)
     if (path.length() < 36) {
         Logger::get().error() << "Invalid path length" << std::endl;
         return false;
@@ -68,7 +68,7 @@ bool sendFileToServer(std::string_view path, size_t size, bool compression) {
     Logger::get().debug() << "Title ID: " << tid << std::endl;
 
     const bool isMovie = path.back() == '4';
-    // 根据全局配置判断是否允许上传
+    // Check global config to determine whether this type is allowed to upload
     const bool shouldUpload = isMovie ? Config::get().uploadMovies()
                                       : Config::get().uploadScreenshots();
     if (!shouldUpload) {
@@ -111,7 +111,7 @@ bool sendFileToServer(std::string_view path, size_t size, bool compression) {
         return false;
     }
 
-    // 构建URL - more conservative memory reservation
+    // Build URL - more conservative memory reservation
     std::string url;
     const auto apiUrl = Config::get().getTelegramApiUrl();
     const auto botToken = Config::get().getTelegramBotToken();
