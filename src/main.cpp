@@ -228,18 +228,23 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
                             break;
 
                         case UploadMode::Both:
-                            // Try compressed first; if it fails, try original
-                            for (int retry = 0; retry < maxRetries && !sent;
+                            // Send compressed first, then original
+                            bool compressedSent = false;
+                            for (int retry = 0;
+                                 retry < maxRetries && !compressedSent;
                                  ++retry) {
-                                sent = sendFileToTelegram(tmpItem, fs, true);
+                                compressedSent =
+                                    sendFileToTelegram(tmpItem, fs, true);
                             }
-                            if (!sent) {
-                                for (int retry = 0; retry < maxRetries && !sent;
-                                     ++retry) {
-                                    sent =
-                                        sendFileToTelegram(tmpItem, fs, false);
-                                }
+
+                            bool originalSent = false;
+                            for (int retry = 0;
+                                 retry < maxRetries && !originalSent; ++retry) {
+                                originalSent =
+                                    sendFileToTelegram(tmpItem, fs, false);
                             }
+
+                            sent = compressedSent || originalSent;
                             break;
                     }
 
