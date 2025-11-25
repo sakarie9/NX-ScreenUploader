@@ -1,6 +1,6 @@
 # NX-ScreenUploader
 
-[English](./README.md) | [中文](./README_CN.md)
+English | [中文](./README_CN.md)
 
 `NX-ScreenUploader` automatically sends screen captures (both images and videos) taken on your Nintendo Switch to Telegram and/or ntfy.sh so that you can more easily access and share them.
 
