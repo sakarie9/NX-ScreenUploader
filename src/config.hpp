@@ -5,11 +5,7 @@
 #include <string>
 #include <string_view>
 
-enum class UploadMode : uint8_t {
-    Compressed = 0,  // Upload only compressed images
-    Original = 1,    // Upload only original images
-    Both = 2  // Upload both (try compressed first, then original on failure)
-};
+#include "config_defaults.hpp"
 
 class Config {
    public:
@@ -46,7 +42,7 @@ class Config {
     [[nodiscard]] constexpr bool telegramUploadMovies() const noexcept {
         return m_telegramUploadMovies;
     }
-    [[nodiscard]] constexpr UploadMode getTelegramUploadMode() const noexcept {
+    [[nodiscard]] std::string_view getTelegramUploadMode() const noexcept {
         return m_telegramUploadMode;
     }
 
@@ -70,27 +66,27 @@ class Config {
     Config& operator=(const Config&) = delete;
 
     // Upload destination toggles
-    bool m_telegramEnabled{true};
-    bool m_ntfyEnabled{false};
+    bool m_telegramEnabled{ConfigDefaults::TELEGRAM_ENABLED};
+    bool m_ntfyEnabled{ConfigDefaults::NTFY_ENABLED};
 
     // Telegram configuration
-    std::string m_telegramBotToken;
-    std::string m_telegramChatId;
-    std::string m_telegramApiUrl;
-    bool m_telegramUploadScreenshots{true};
-    bool m_telegramUploadMovies{true};
-    UploadMode m_telegramUploadMode{UploadMode::Compressed};
+    std::string m_telegramBotToken{ConfigDefaults::TELEGRAM_BOT_TOKEN};
+    std::string m_telegramChatId{ConfigDefaults::TELEGRAM_CHAT_ID};
+    std::string m_telegramApiUrl{ConfigDefaults::TELEGRAM_API_URL};
+    bool m_telegramUploadScreenshots{
+        ConfigDefaults::TELEGRAM_UPLOAD_SCREENSHOTS};
+    bool m_telegramUploadMovies{ConfigDefaults::TELEGRAM_UPLOAD_MOVIES};
+    std::string m_telegramUploadMode{ConfigDefaults::TELEGRAM_UPLOAD_MODE};
 
     // Ntfy configuration
-    std::string m_ntfyUrl;
-    std::string m_ntfyTopic;
-    std::string m_ntfyToken;
-    std::string m_ntfyPriority;
-    bool m_ntfyUploadScreenshots{true};
-    bool m_ntfyUploadMovies{false};
+    std::string m_ntfyUrl{ConfigDefaults::NTFY_URL};
+    std::string m_ntfyTopic{ConfigDefaults::NTFY_TOPIC};
+    std::string m_ntfyToken{ConfigDefaults::NTFY_TOKEN};
+    std::string m_ntfyPriority{ConfigDefaults::NTFY_PRIORITY};
+    bool m_ntfyUploadScreenshots{ConfigDefaults::NTFY_UPLOAD_SCREENSHOTS};
+    bool m_ntfyUploadMovies{ConfigDefaults::NTFY_UPLOAD_MOVIES};
 
     // General settings
-    bool m_keepLogs{false};
-    int m_checkIntervalSeconds{
-        3};  // Check interval (seconds), default 3s, minimum 1s
+    bool m_keepLogs{ConfigDefaults::KEEP_LOGS};
+    int m_checkIntervalSeconds{ConfigDefaults::CHECK_INTERVAL_SECONDS};
 };

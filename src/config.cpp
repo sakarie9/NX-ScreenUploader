@@ -1,7 +1,12 @@
 #include "config.hpp"
 
 #include <minIni.h>
+#include <sys/stat.h>
 
+#include <cstring>
+#include <iostream>
+
+#include "logger.hpp"
 #include "project.h"
 
 // Configuration file path
@@ -10,11 +15,11 @@ static constexpr const char* CONFIG_PATH =
 
 // Helper: read a string value with an upper bound of maxlen characters
 static std::string ini_get_string(const char* section, const char* key,
-                                  const char* default_value,
+                                  std::string_view default_value,
                                   size_t maxlen = 256) {
     std::string result(maxlen, '\0');
-    int len = ini_gets(section, key, default_value, result.data(), maxlen,
-                       CONFIG_PATH);
+    int len = ini_gets(section, key, default_value.data(), result.data(),
+                       maxlen, CONFIG_PATH);
     if (len > 0) {
         result.resize(len);
     } else {
@@ -23,52 +28,115 @@ static std::string ini_get_string(const char* section, const char* key,
     return result;
 }
 
+// Helper: read a boolean value
+static bool ini_get_bool(const char* section, const char* key,
+                         bool default_value) {
+    return ini_getbool(section, key, default_value ? 1 : 0, CONFIG_PATH) != 0;
+}
+
+// Helper: read an integer value
+static long ini_get_long(const char* section, const char* key,
+                         long default_value) {
+    return ini_getl(section, key, default_value, CONFIG_PATH);
+}
+
+// Helper: check if config file exists
+static bool configFileExists() {
+    struct stat buffer;
+    return stat(CONFIG_PATH, &buffer) == 0;
+}
+
 bool Config::refresh() {
-    // Read upload destination toggles
-    m_telegramEnabled = ini_getbool("general", "telegram", 1, CONFIG_PATH) != 0;
-    m_ntfyEnabled = ini_getbool("general", "ntfy", 0, CONFIG_PATH) != 0;
-
-    // Read Telegram configuration from [telegram] section
-    m_telegramBotToken = ini_get_string("telegram", "bot_token", "undefined");
-    m_telegramChatId = ini_get_string("telegram", "chat_id", "undefined");
-    m_telegramApiUrl =
-        ini_get_string("telegram", "api_url", "https://api.telegram.org");
-    m_telegramUploadScreenshots =
-        ini_getbool("telegram", "upload_screenshots", 1, CONFIG_PATH) != 0;
-    m_telegramUploadMovies =
-        ini_getbool("telegram", "upload_movies", 1, CONFIG_PATH) != 0;
-
-    // Read Telegram upload mode: compressed, original, or both (default:
-    // compressed)
-    std::string telegramUploadModeStr =
-        ini_get_string("telegram", "upload_mode", "compressed");
-    if (telegramUploadModeStr == "compressed") {
-        m_telegramUploadMode = UploadMode::Compressed;
-    } else if (telegramUploadModeStr == "original") {
-        m_telegramUploadMode = UploadMode::Original;
-    } else if (telegramUploadModeStr == "both") {
-        m_telegramUploadMode = UploadMode::Both;
-    } else {
-        m_telegramUploadMode = UploadMode::Compressed;  // Fallback default
+    // Check if config file exists
+    if (!configFileExists()) {
+        Logger::get().error()
+            << "Config file not found at: " << CONFIG_PATH << std::endl;
+        return false;
     }
 
+    // Read upload destination toggles
+    m_telegramEnabled =
+        ini_get_bool("general", "telegram", ConfigDefaults::TELEGRAM_ENABLED);
+    m_ntfyEnabled =
+        ini_get_bool("general", "ntfy", ConfigDefaults::NTFY_ENABLED);
+
+    // Read Telegram configuration from [telegram] section
+    m_telegramBotToken = ini_get_string("telegram", "bot_token",
+                                        ConfigDefaults::TELEGRAM_BOT_TOKEN);
+    m_telegramChatId =
+        ini_get_string("telegram", "chat_id", ConfigDefaults::TELEGRAM_CHAT_ID);
+    m_telegramApiUrl =
+        ini_get_string("telegram", "api_url", ConfigDefaults::TELEGRAM_API_URL);
+    m_telegramUploadScreenshots =
+        ini_get_bool("telegram", "upload_screenshots",
+                     ConfigDefaults::TELEGRAM_UPLOAD_SCREENSHOTS);
+    m_telegramUploadMovies = ini_get_bool(
+        "telegram", "upload_movies", ConfigDefaults::TELEGRAM_UPLOAD_MOVIES);
+
+    // Read Telegram upload mode: compressed, original, or both
+    // Stored directly as string to avoid unnecessary conversions
+    m_telegramUploadMode = ini_get_string("telegram", "upload_mode",
+                                          ConfigDefaults::TELEGRAM_UPLOAD_MODE);
+
     // Read Ntfy configuration from [ntfy] section
-    m_ntfyUrl = ini_get_string("ntfy", "url", "https://ntfy.sh");
-    m_ntfyTopic = ini_get_string("ntfy", "topic", "");
-    m_ntfyToken = ini_get_string("ntfy", "token", "");
-    m_ntfyPriority = ini_get_string("ntfy", "priority", "default");
-    m_ntfyUploadScreenshots =
-        ini_getbool("ntfy", "upload_screenshots", 1, CONFIG_PATH) != 0;
-    m_ntfyUploadMovies =
-        ini_getbool("ntfy", "upload_movies", 0, CONFIG_PATH) != 0;
+    m_ntfyUrl = ini_get_string("ntfy", "url", ConfigDefaults::NTFY_URL);
+    m_ntfyTopic = ini_get_string("ntfy", "topic", ConfigDefaults::NTFY_TOPIC);
+    m_ntfyToken = ini_get_string("ntfy", "token", ConfigDefaults::NTFY_TOKEN);
+    m_ntfyPriority =
+        ini_get_string("ntfy", "priority", ConfigDefaults::NTFY_PRIORITY);
+    m_ntfyUploadScreenshots = ini_get_bool(
+        "ntfy", "upload_screenshots", ConfigDefaults::NTFY_UPLOAD_SCREENSHOTS);
+    m_ntfyUploadMovies = ini_get_bool("ntfy", "upload_movies",
+                                      ConfigDefaults::NTFY_UPLOAD_MOVIES);
 
-    m_keepLogs = ini_getbool("general", "keep_logs", 0, CONFIG_PATH) != 0;
+    // Read general settings
+    m_keepLogs =
+        ini_get_bool("general", "keep_logs", ConfigDefaults::KEEP_LOGS);
 
-    // Read check interval (seconds), default 3s, minimum 1s
-    m_checkIntervalSeconds =
-        (int)ini_getl("general", "check_interval", 3, CONFIG_PATH);
-    if (m_checkIntervalSeconds < 1) {
-        m_checkIntervalSeconds = 1;
+    // Read check interval (seconds), with minimum enforcement
+    m_checkIntervalSeconds = (int)ini_get_long(
+        "general", "check_interval", ConfigDefaults::CHECK_INTERVAL_SECONDS);
+    if (m_checkIntervalSeconds < ConfigDefaults::CHECK_INTERVAL_MINIMUM) {
+        m_checkIntervalSeconds = ConfigDefaults::CHECK_INTERVAL_MINIMUM;
+    }
+
+    // ========================================================================
+    // Validate configuration and disable invalid channels
+    // ========================================================================
+
+    // Validate Telegram upload mode
+    if (!ConfigDefaults::isUploadModeValid(m_telegramUploadMode)) {
+        Logger::get().warn()
+            << "Invalid Telegram upload mode: '" << m_telegramUploadMode
+            << "' (valid modes: compressed, original, both). Resetting to "
+               "default."
+            << std::endl;
+        m_telegramUploadMode = ConfigDefaults::TELEGRAM_UPLOAD_MODE;
+    }
+
+    // Validate Telegram configuration
+    if (m_telegramEnabled && !ConfigDefaults::isTelegramValid(
+                                 m_telegramBotToken, m_telegramChatId)) {
+        Logger::get().warn()
+            << "Telegram channel disabled: Invalid or missing configuration "
+               "(bot_token and/or chat_id are not set or are set to "
+               "'undefined')"
+            << std::endl;
+        m_telegramEnabled = false;
+    }
+
+    // Validate Ntfy configuration
+    if (m_ntfyEnabled && !ConfigDefaults::isNtfyValid(m_ntfyTopic)) {
+        Logger::get().warn()
+            << "Ntfy channel disabled: Invalid or missing configuration (topic "
+               "is not set)"
+            << std::endl;
+        m_ntfyEnabled = false;
+    }
+
+    // Check if at least one channel is enabled
+    if (!m_telegramEnabled && !m_ntfyEnabled) {
+        return false;  // Indicate failure - no valid upload channel available
     }
 
     return true;

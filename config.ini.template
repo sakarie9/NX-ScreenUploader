@@ -3,7 +3,7 @@
 ; Enable/disable upload destinations (true/false)
 ; Set to true to enable, false to disable
 ; Multiple destinations can be enabled simultaneously
-telegram = true
+telegram = false
 ntfy = false
 
 ; Check interval in seconds (default: 3, minimum: 1)
@@ -41,7 +41,7 @@ upload_mode = compressed
 ; ntfy.sh server URL (default: https://ntfy.sh)
 ; https://docs.ntfy.sh/publish/#limitations
 ; You can use a self-hosted instance here
-url = https://ntfy.sh
+; url = https://ntfy.sh
 
 ; Topic name (required if ntfy is enabled)
 ; This is where your notifications will be sent

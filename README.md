@@ -33,14 +33,14 @@ To use Telegram, you must create your own Telegram bot. It will send your Switch
 
 [ntfy.sh](https://ntfy.sh) is a simple HTTP-based pub-sub notification service. You can use the public instance or host your own.
 
-1. Choose a unique, hard-to-guess topic name (e.g., `my-switch-captures-a8f2b3c`)
+1. Choose a unique, hard-to-guess topic name (e.g., `my-switch-captures-abcdefg`)
 2. (Optional) If you want to protect your topic, create an access token at [ntfy.sh/account](https://ntfy.sh/account)
-3. Subscribe to your topic using the ntfy mobile app or web interface
+3. Subscribe to your topic using the ntfy mobile app or web interface (e.g., `https://ntfy.sh/my-switch-captures-abcdefg`)
 
 ### Installation
 
 1. Download [the latest release](https://github.com/sakarie9/NX-ScreenUploader) and extract it somewhere.
-2. Open `config/NX-ScreenUploader/config.ini` and configure your upload destination(s):
+2. Copy `config/NX-ScreenUploader/config.ini.template` to `config/NX-ScreenUploader/config.ini` and configure your upload destination(s):
    - **For Telegram**: Set `telegram = true` in `[general]`, then configure `bot_token` and `chat_id` in `[telegram]` section
    - **For ntfy.sh**: Set `ntfy = true` in `[general]`, then configure `topic` (and optionally `token`) in `[ntfy]` section
    - You can enable both destinations simultaneously

@@ -132,6 +132,15 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
 
     initLogger(false);
     if (!Config::get().refresh()) {
+        Logger::get().error()
+            << "Configuration validation failed: No valid upload channel "
+               "available (both Telegram and Ntfy are disabled or "
+               "misconfigured)."
+            << std::endl;
+        Logger::get().error() << "Please check your config.ini file and ensure "
+                                 "at least one channel is properly configured."
+                              << std::endl;
+        Logger::get().close();
         return 0;
     }
 
@@ -173,12 +182,10 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
     Logger::get().info() << "Current last item: " << lastItem << std::endl;
 
     // Determine Telegram upload mode based on configuration
-    const UploadMode telegramUploadMode = Config::get().getTelegramUploadMode();
-    const char* modeStr =
-        telegramUploadMode == UploadMode::Compressed ? "compressed"
-        : telegramUploadMode == UploadMode::Original ? "original"
-                                                     : "both";
-    Logger::get().info() << "Telegram upload mode: " << modeStr << std::endl;
+    const std::string_view telegramUploadMode =
+        Config::get().getTelegramUploadMode();
+    Logger::get().info() << "Telegram upload mode: " << telegramUploadMode
+                         << std::endl;
 
     // Get check interval configuration
     const int checkInterval = Config::get().getCheckIntervalSeconds();
@@ -210,42 +217,35 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
                     bool sent = false;
 
                     // Decide upload strategy based on configured mode
-                    switch (telegramUploadMode) {
-                        case UploadMode::Compressed:
-                            // Try compressed upload only
-                            for (int retry = 0; retry < maxRetries && !sent;
-                                 ++retry) {
-                                sent = sendFileToTelegram(tmpItem, fs, true);
-                            }
-                            break;
+                    if (telegramUploadMode == UploadMode::Compressed) {
+                        // Try compressed upload only
+                        for (int retry = 0; retry < maxRetries && !sent;
+                             ++retry) {
+                            sent = sendFileToTelegram(tmpItem, fs, true);
+                        }
+                    } else if (telegramUploadMode == UploadMode::Original) {
+                        // Try original upload only
+                        for (int retry = 0; retry < maxRetries && !sent;
+                             ++retry) {
+                            sent = sendFileToTelegram(tmpItem, fs, false);
+                        }
+                    } else if (telegramUploadMode == UploadMode::Both) {
+                        // Send compressed first, then original
+                        bool compressedSent = false;
+                        for (int retry = 0;
+                             retry < maxRetries && !compressedSent; ++retry) {
+                            compressedSent =
+                                sendFileToTelegram(tmpItem, fs, true);
+                        }
 
-                        case UploadMode::Original:
-                            // Try original upload only
-                            for (int retry = 0; retry < maxRetries && !sent;
-                                 ++retry) {
-                                sent = sendFileToTelegram(tmpItem, fs, false);
-                            }
-                            break;
+                        bool originalSent = false;
+                        for (int retry = 0; retry < maxRetries && !originalSent;
+                             ++retry) {
+                            originalSent =
+                                sendFileToTelegram(tmpItem, fs, false);
+                        }
 
-                        case UploadMode::Both:
-                            // Send compressed first, then original
-                            bool compressedSent = false;
-                            for (int retry = 0;
-                                 retry < maxRetries && !compressedSent;
-                                 ++retry) {
-                                compressedSent =
-                                    sendFileToTelegram(tmpItem, fs, true);
-                            }
-
-                            bool originalSent = false;
-                            for (int retry = 0;
-                                 retry < maxRetries && !originalSent; ++retry) {
-                                originalSent =
-                                    sendFileToTelegram(tmpItem, fs, false);
-                            }
-
-                            sent = compressedSent || originalSent;
-                            break;
+                        sent = compressedSent || originalSent;
                     }
 
                     if (!sent) {

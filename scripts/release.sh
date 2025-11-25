@@ -19,7 +19,7 @@ mkdir "$RELEASE_DIR"
 pushd "$RELEASE_DIR"
 mkdir -p config/${APP_TITLE}
 mkdir -p atmosphere/contents/${APP_TITLE_ID}/flags
-cp "${PROJECT_DIR}/config.ini" config/${APP_TITLE}/config.ini
+cp "${PROJECT_DIR}/config.ini.template" config/${APP_TITLE}/config.ini.template
 cp "${PROJECT_DIR}/toolbox.json" atmosphere/contents/${APP_TITLE_ID}/toolbox.json
 cp "${BUILD_DIR}/NX-ScreenUploader.nsp" atmosphere/contents/${APP_TITLE_ID}/exefs.nsp
 touch atmosphere/contents/${APP_TITLE_ID}/flags/boot2.flag
