@@ -1,5 +1,7 @@
 # NX-ScreenUploader
 
+[English](./README.md) | [中文](./README_CN.md)
+
 `NX-ScreenUploader` automatically sends screen captures (both images and videos) taken on your Nintendo Switch to Telegram and/or ntfy.sh so that you can more easily access and share them.
 
 This project was forked from [bakatrouble/sys-screenuploader](https://github.com/bakatrouble/sys-screenuploader) and [musse/sys-screen-capture-uploader](https://github.com/musse/sys-screen-capture-uploader) and [yuno-kojo/sys-screen-capture-uploader](https://github.com/yuno-kojo/sys-screen-capture-uploader). It differs from the original project because no intermediate server is needed. The screen captures are directly uploaded to the Telegram API or ntfy.sh service.
@@ -32,6 +34,8 @@ To use Telegram, you must create your own Telegram bot. It will send your Switch
 ### Option 2: ntfy.sh
 
 [ntfy.sh](https://ntfy.sh) is a simple HTTP-based pub-sub notification service. You can use the public instance or host your own.
+
+Note that ntfy.sh topics are public by default. Anyone who knows your topic name can publish or subscribe to it. Therefore, it's recommended to choose a unique and hard-to-guess topic name. You can also protect your topic with an access token.
 
 1. Choose a unique, hard-to-guess topic name (e.g., `my-switch-captures-abcdefg`)
 2. (Optional) If you want to protect your topic, create an access token at [ntfy.sh/account](https://ntfy.sh/account)
