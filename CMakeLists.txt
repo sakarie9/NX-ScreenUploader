@@ -4,8 +4,21 @@
 #
 # libnx CMake template for Nintendo Switch homebrew development.
 
+# Replace this with the name of your application
+set(HOMEBREW_APP "NX-ScreenUploader")
+
+# Meta information about the app
+set(APP_TITLE ${HOMEBREW_APP})
+set(APP_AUTHOR "Sakari")
+
+set(VERSION_MAJOR 0)
+set(VERSION_MINOR 1)
+set(VERSION_MICRO 4)
+set(APP_VERSION
+        "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_MICRO}")
+
 cmake_minimum_required(VERSION 3.12)
-project(NX-ScreenUploader)
+project(${HOMEBREW_APP})
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 include(options)
@@ -28,19 +41,6 @@ endif ()
 include_directories(${PROJECT_BINARY_DIR})
 include_directories(${PORTLIBS}/include)
 include_directories(${LIBNX}/include)
-
-# Replace this with the name of your application
-set(HOMEBREW_APP "NX-ScreenUploader")
-
-# Meta information about the app
-set(APP_TITLE ${HOMEBREW_APP})
-set(APP_AUTHOR "Sakari")
-
-set(VERSION_MAJOR 0)
-set(VERSION_MINOR 1)
-set(VERSION_MICRO 3)
-set(APP_VERSION
-        "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_MICRO}")
 
 if (NOT DEFINED CMAKE_BUILD_TYPE_INIT)
     set(CMAKE_BUILD_TYPE_INIT Release)
