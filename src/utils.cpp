@@ -3,7 +3,7 @@
 #include <sys/stat.h>
 
 #include <algorithm>
-#include <ranges>
+#include <vector>
 
 namespace {
 constexpr std::string_view ALBUM_PATH = "img:/";
@@ -19,6 +19,33 @@ template <size_t ExpectedLen>
     const auto filename = entry.path().filename().string();
     return filename.length() == ExpectedLen && isDigitsOnly(filename);
 }
+
+// Helper to find maximum path in directory matching a predicate using ranges
+template <size_t ExpectedLen>
+[[nodiscard]] fs::path findMaxPath(const fs::path& dir) {
+    std::vector<fs::path> paths;
+    for (const auto& entry : fs::directory_iterator(dir)) {
+        if (isValidDigitPath<ExpectedLen>(entry)) {
+            paths.push_back(entry.path());
+        }
+    }
+
+    if (paths.empty()) return {};
+    return *std::ranges::max_element(paths);
+}
+
+// Helper to find maximum file path in directory using ranges
+[[nodiscard]] fs::path findMaxFile(const fs::path& dir) {
+    std::vector<fs::path> paths;
+    for (const auto& entry : fs::directory_iterator(dir)) {
+        if (entry.is_regular_file()) {
+            paths.push_back(entry.path());
+        }
+    }
+
+    if (paths.empty()) return {};
+    return *std::ranges::max_element(paths);
+}
 }  // namespace
 
 std::expected<std::string, std::string> getLastAlbumItem() {
@@ -27,51 +54,19 @@ std::expected<std::string, std::string> getLastAlbumItem() {
         return std::unexpected("No album directory: img:/");
 
     // Find the largest year directory
-    fs::path maxYear;
-    for (const auto& entry : fs::directory_iterator(albumPath)) {
-        if (isValidDigitPath<4>(entry)) {
-            const auto& path = entry.path();
-            if (maxYear.empty() || path > maxYear) {
-                maxYear = path;
-            }
-        }
-    }
+    const fs::path maxYear = findMaxPath<4>(albumPath);
     if (maxYear.empty()) return std::unexpected("No years in img:/");
 
     // Find the largest month directory
-    fs::path maxMonth;
-    for (const auto& entry : fs::directory_iterator(maxYear)) {
-        if (isValidDigitPath<2>(entry)) {
-            const auto& path = entry.path();
-            if (maxMonth.empty() || path > maxMonth) {
-                maxMonth = path;
-            }
-        }
-    }
+    const fs::path maxMonth = findMaxPath<2>(maxYear);
     if (maxMonth.empty()) return std::unexpected("No months in year");
 
     // Find the largest day directory
-    fs::path maxDay;
-    for (const auto& entry : fs::directory_iterator(maxMonth)) {
-        if (isValidDigitPath<2>(entry)) {
-            const auto& path = entry.path();
-            if (maxDay.empty() || path > maxDay) {
-                maxDay = path;
-            }
-        }
-    }
+    const fs::path maxDay = findMaxPath<2>(maxMonth);
     if (maxDay.empty()) return std::unexpected("No days in month");
 
     // Find the latest file (lexicographically largest)
-    fs::path maxFile;
-    for (const auto& entry : fs::directory_iterator(maxDay)) {
-        if (entry.is_regular_file()) {
-            const auto& path = entry.path();
-            if (maxFile.empty() || path > maxFile) {
-                maxFile = path;
-            }
-        }
-    }
+    const fs::path maxFile = findMaxFile(maxDay);
     if (maxFile.empty()) return std::unexpected("No screenshots in day");
 
     return maxFile.string();
@@ -90,9 +85,16 @@ std::string url_encode(std::string_view value) {
 
     constexpr std::string_view hexChars = "0123456789ABCDEF";
 
+    // constexpr-friendly character check
+    constexpr auto isUnreserved = [](unsigned char c) constexpr noexcept {
+        return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
+               (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '.' ||
+               c == '~';
+    };
+
     for (const unsigned char c : value) {
-        if (std::isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~') {
-            result.push_back(c);
+        if (isUnreserved(c)) {
+            result.push_back(static_cast<char>(c));
         } else {
             result.push_back('%');
             result.push_back(hexChars[c >> 4]);

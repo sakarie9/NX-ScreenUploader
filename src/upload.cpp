@@ -1,13 +1,9 @@
 #include "upload.hpp"
 
 #include <curl/curl.h>
-#include <netdb.h>
 
-#include <array>
-#include <cstdio>
 #include <filesystem>
 #include <iostream>
-#include <string>
 #include <string_view>
 
 #include "config.hpp"
@@ -150,12 +146,12 @@ bool sendFileToTelegram(std::string_view path, size_t size, bool compression) {
         return false;
     }
 
-    // Build URL - more conservative memory reservation
-    std::string url;
+    // Build URL
     const auto apiUrl = Config::get().getTelegramApiUrl();
     const auto botToken = Config::get().getTelegramBotToken();
     const auto chatId = Config::get().getTelegramChatId();
 
+    std::string url;
     url.reserve(apiUrl.size() + botToken.size() + chatId.size() +
                 fileTypeInfo.telegramMethod.size() + 20);
     url = apiUrl;
@@ -270,7 +266,8 @@ bool sendFileToNtfy(std::string_view path, size_t size) {
     // Build headers
     struct curl_slist* headers = nullptr;
 
-    std::string filenameHeader = "Filename: " + filename;
+    std::string filenameHeader = "Filename: ";
+    filenameHeader += filename;
     headers = curl_slist_append(headers, filenameHeader.c_str());
 
     const auto token = Config::get().getNtfyToken();
@@ -287,7 +284,8 @@ bool sendFileToNtfy(std::string_view path, size_t size) {
         headers = curl_slist_append(headers, priorityHeader.c_str());
     }
 
-    std::string titleHeader = "Title: Screenshot from " + std::string(tid);
+    std::string titleHeader = "Title: Screenshot from ";
+    titleHeader += tid;
     headers = curl_slist_append(headers, titleHeader.c_str());
 
     // Configure CURL for PUT upload

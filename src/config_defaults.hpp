@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstdint>
 #include <string_view>
 
 /**
@@ -60,7 +59,7 @@ constexpr bool NTFY_UPLOAD_MOVIES = false;
  * Check if upload mode string is valid
  * Returns true if mode is one of the valid modes
  */
-inline bool isUploadModeValid(std::string_view mode) {
+constexpr bool isUploadModeValid(std::string_view mode) noexcept {
     return mode == UploadMode::Compressed || mode == UploadMode::Original ||
            mode == UploadMode::Both;
 }
@@ -69,8 +68,8 @@ inline bool isUploadModeValid(std::string_view mode) {
  * Check if Telegram configuration is valid
  * Returns true if Telegram is properly configured
  */
-inline bool isTelegramValid(std::string_view botToken,
-                            std::string_view chatId) {
+constexpr bool isTelegramValid(std::string_view botToken,
+                               std::string_view chatId) noexcept {
     // Both token and chat ID must be non-empty
     return !botToken.empty() && !chatId.empty();
 }
@@ -79,7 +78,7 @@ inline bool isTelegramValid(std::string_view botToken,
  * Check if Ntfy configuration is valid
  * Returns true if Ntfy is properly configured
  */
-inline bool isNtfyValid(std::string_view topic) {
+constexpr bool isNtfyValid(std::string_view topic) noexcept {
     // Topic must be non-empty
     return !topic.empty();
 }

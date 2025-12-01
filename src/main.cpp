@@ -233,6 +233,14 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
     constexpr std::string_view separator = "=============================";
     constexpr int maxRetries = 3;
 
+    // Helper lambda to retry upload with max attempts
+    const auto retryUpload = [maxRetries]<typename F>(F&& uploadFunc) {
+        for (int retry = 0; retry < maxRetries; ++retry) {
+            if (uploadFunc()) return true;
+        }
+        return false;
+    };
+
     while (true) {
         auto tmpItemResult = getLastAlbumItem();
 
@@ -265,33 +273,21 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
 
                     // Decide upload strategy based on configured mode
                     if (telegramUploadMode == UploadMode::Compressed) {
-                        // Try compressed upload only
-                        for (int retry = 0; retry < maxRetries && !sent;
-                             ++retry) {
-                            sent = sendFileToTelegram(tmpItem, fs, true);
-                        }
+                        sent = retryUpload([&] {
+                            return sendFileToTelegram(tmpItem, fs, true);
+                        });
                     } else if (telegramUploadMode == UploadMode::Original) {
-                        // Try original upload only
-                        for (int retry = 0; retry < maxRetries && !sent;
-                             ++retry) {
-                            sent = sendFileToTelegram(tmpItem, fs, false);
-                        }
+                        sent = retryUpload([&] {
+                            return sendFileToTelegram(tmpItem, fs, false);
+                        });
                     } else if (telegramUploadMode == UploadMode::Both) {
                         // Send compressed first, then original
-                        bool compressedSent = false;
-                        for (int retry = 0;
-                             retry < maxRetries && !compressedSent; ++retry) {
-                            compressedSent =
-                                sendFileToTelegram(tmpItem, fs, true);
-                        }
-
-                        bool originalSent = false;
-                        for (int retry = 0; retry < maxRetries && !originalSent;
-                             ++retry) {
-                            originalSent =
-                                sendFileToTelegram(tmpItem, fs, false);
-                        }
-
+                        const bool compressedSent = retryUpload([&] {
+                            return sendFileToTelegram(tmpItem, fs, true);
+                        });
+                        const bool originalSent = retryUpload([&] {
+                            return sendFileToTelegram(tmpItem, fs, false);
+                        });
                         sent = compressedSent || originalSent;
                     }
 
@@ -306,11 +302,8 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
 
                 // Upload to ntfy (always original, no compression)
                 if (Config::get().ntfyEnabled()) {
-                    bool sent = false;
-
-                    for (int retry = 0; retry < maxRetries && !sent; ++retry) {
-                        sent = sendFileToNtfy(tmpItem, fs);
-                    }
+                    const bool sent = retryUpload(
+                        [&] { return sendFileToNtfy(tmpItem, fs); });
 
                     if (!sent) {
                         Logger::get().error()

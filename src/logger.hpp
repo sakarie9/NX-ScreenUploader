@@ -2,7 +2,9 @@
 
 #include <array>
 #include <cstdio>
+#include <string>
 #include <string_view>
+#include <utility>
 
 #include "project.h"
 
@@ -61,38 +63,24 @@ class LogMessage {
         return *this << std::string_view(str);
     }
 
-    LogMessage& operator<<(int val) {
-        if (m_file) std::fprintf(m_file, "%d", val);
+    // Use concepts to handle all signed integral types
+    template <std::signed_integral T>
+    LogMessage& operator<<(T val) {
+        if (m_file) std::fprintf(m_file, "%lld", static_cast<long long>(val));
         return *this;
     }
 
-    LogMessage& operator<<(unsigned int val) {
-        if (m_file) std::fprintf(m_file, "%u", val);
+    // Use concepts to handle all unsigned integral types
+    template <std::unsigned_integral T>
+    LogMessage& operator<<(T val) {
+        if (m_file)
+            std::fprintf(m_file, "%llu", static_cast<unsigned long long>(val));
         return *this;
     }
 
-    LogMessage& operator<<(long val) {
-        if (m_file) std::fprintf(m_file, "%ld", val);
-        return *this;
-    }
-
-    LogMessage& operator<<(unsigned long val) {
-        if (m_file) std::fprintf(m_file, "%lu", val);
-        return *this;
-    }
-
-    LogMessage& operator<<(long long val) {
-        if (m_file) std::fprintf(m_file, "%lld", val);
-        return *this;
-    }
-
-    LogMessage& operator<<(unsigned long long val) {
-        if (m_file) std::fprintf(m_file, "%llu", val);
-        return *this;
-    }
-
-    LogMessage& operator<<(double val) {
-        if (m_file) std::fprintf(m_file, "%.6f", val);
+    template <std::floating_point T>
+    LogMessage& operator<<(T val) {
+        if (m_file) std::fprintf(m_file, "%.6f", static_cast<double>(val));
         return *this;
     }
 
@@ -139,7 +127,7 @@ class Logger {
     }
 
     [[nodiscard]] constexpr bool isEnabled(LogLevel level) const noexcept {
-        return level >= m_level;
+        return std::to_underlying(level) >= std::to_underlying(m_level);
     }
 
     LogMessage debug() {

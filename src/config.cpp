@@ -3,7 +3,6 @@
 #include <minIni.h>
 #include <sys/stat.h>
 
-#include <cstring>
 #include <iostream>
 
 #include "logger.hpp"
@@ -93,12 +92,11 @@ bool Config::refresh() {
     m_keepLogs =
         ini_get_bool("general", "keep_logs", ConfigDefaults::KEEP_LOGS);
 
-    // Read check interval (seconds), with minimum enforcement
-    m_checkIntervalSeconds = (int)ini_get_long(
-        "general", "check_interval", ConfigDefaults::CHECK_INTERVAL_SECONDS);
-    if (m_checkIntervalSeconds < ConfigDefaults::CHECK_INTERVAL_MINIMUM) {
-        m_checkIntervalSeconds = ConfigDefaults::CHECK_INTERVAL_MINIMUM;
-    }
+    // Read check interval (seconds), with minimum enforcement using std::max
+    m_checkIntervalSeconds = std::max(
+        static_cast<int>(ini_get_long("general", "check_interval",
+                                      ConfigDefaults::CHECK_INTERVAL_SECONDS)),
+        ConfigDefaults::CHECK_INTERVAL_MINIMUM);
 
     // ========================================================================
     // Validate configuration and disable invalid channels
