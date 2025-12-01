@@ -9,3 +9,7 @@ option(USE_CPP_23 "Enable this for C++23 language standard." ON)
 # Enable LTO (Link Time Optimization) for better optimization
 # Set to OFF to disable LTO
 option(ENABLE_LTO "Enable Link Time Optimization (LTO)" ON)
+
+# Enable time-related functions (get_time, time initialization)
+# Set to ON to enable time functionality, OFF to disable
+option(ENABLE_TIME_FUNCTIONS "Enable time-related functions" OFF)

@@ -5,6 +5,12 @@
 #include <algorithm>
 #include <vector>
 
+#ifdef ENABLE_TIME_FUNCTIONS
+#include <chrono>
+#endif
+
+#include "logger.hpp"
+
 namespace {
 constexpr std::string_view ALBUM_PATH = "img:/";
 
@@ -49,6 +55,10 @@ template <size_t ExpectedLen>
 }  // namespace
 
 std::expected<std::string, std::string> getLastAlbumItem() {
+#ifdef ENABLE_TIME_FUNCTIONS
+    const auto startTime = std::chrono::high_resolution_clock::now();
+#endif
+
     constexpr std::string_view albumPath = ALBUM_PATH;
     if (!fs::is_directory(albumPath))
         return std::unexpected("No album directory: img:/");
@@ -68,6 +78,14 @@ std::expected<std::string, std::string> getLastAlbumItem() {
     // Find the latest file (lexicographically largest)
     const fs::path maxFile = findMaxFile(maxDay);
     if (maxFile.empty()) return std::unexpected("No screenshots in day");
+
+#ifdef ENABLE_TIME_FUNCTIONS
+    const auto endTime = std::chrono::high_resolution_clock::now();
+    const auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(
+        endTime - startTime);
+    Logger::get().info() << "[getLastAlbumItem] Success: " << maxFile.string()
+                         << " (" << duration.count() << "ns)" << endl;
+#endif
 
     return maxFile.string();
 }
