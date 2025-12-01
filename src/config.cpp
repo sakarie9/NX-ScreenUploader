@@ -3,8 +3,6 @@
 #include <minIni.h>
 #include <sys/stat.h>
 
-#include <iostream>
-
 #include "logger.hpp"
 #include "project.h"
 
@@ -49,7 +47,7 @@ bool Config::refresh() {
     // Check if config file exists
     if (!configFileExists()) {
         Logger::get().error()
-            << "Config file not found at: " << CONFIG_PATH << std::endl;
+            << "Config file not found at: " << CONFIG_PATH << endl;
         return false;
     }
 
@@ -108,7 +106,7 @@ bool Config::refresh() {
             << "Invalid Telegram upload mode: '" << m_telegramUploadMode
             << "' (valid modes: compressed, original, both). Resetting to "
                "default."
-            << std::endl;
+            << endl;
         m_telegramUploadMode = ConfigDefaults::TELEGRAM_UPLOAD_MODE;
     }
 
@@ -119,7 +117,7 @@ bool Config::refresh() {
             << "Telegram channel disabled: Invalid or missing configuration "
                "(bot_token and/or chat_id are not set or are set to "
                "'undefined')"
-            << std::endl;
+            << endl;
         m_telegramEnabled = false;
     }
 
@@ -128,7 +126,7 @@ bool Config::refresh() {
         Logger::get().warn()
             << "Ntfy channel disabled: Invalid or missing configuration (topic "
                "is not set)"
-            << std::endl;
+            << endl;
         m_ntfyEnabled = false;
     }
 

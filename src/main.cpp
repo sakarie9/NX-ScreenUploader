@@ -2,7 +2,6 @@
 #include <dirent.h>
 #include <switch.h>
 
-#include <iostream>
 #include <string_view>
 
 #include "config.hpp"
@@ -125,9 +124,9 @@ void initLogger(bool truncate) {
 
     constexpr std::string_view separator = "=============================";
     auto logger = Logger::get().none();
-    logger << separator << std::endl;
-    logger << APP_TITLE " v" << APP_VERSION << " is starting..." << std::endl;
-    logger << separator << std::endl;
+    logger << separator << endl;
+    logger << APP_TITLE " v" << APP_VERSION << " is starting..." << endl;
+    logger << separator << endl;
 }
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
@@ -146,10 +145,10 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
             << "Configuration validation failed: No valid upload channel "
                "available (both Telegram and Ntfy are disabled or "
                "misconfigured)."
-            << std::endl;
+            << endl;
         Logger::get().error() << "Please check your config.ini file and ensure "
                                  "at least one channel is properly configured."
-                              << std::endl;
+                              << endl;
         Logger::get().close();
         return 0;
     }
@@ -167,7 +166,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
     Result rc = capsaGetAutoSavingStorage(&storage);
     if (!R_SUCCEEDED(rc)) {
         Logger::get().error() << "capsaGetAutoSavingStorage() failed: " << rc
-                              << ", exiting..." << std::endl;
+                              << ", exiting..." << endl;
         return 0;
     }
 
@@ -176,29 +175,29 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
     if (!R_SUCCEEDED(rc)) {
         Logger::get().error()
             << "fsOpenImageDirectoryFileSystem() failed: " << rc
-            << ", exiting..." << std::endl;
+            << ", exiting..." << endl;
         return 0;
     }
 
     const int mountRes = fsdevMountDevice("img", imageFs);
     if (mountRes < 0) {
         Logger::get().error()
-            << "fsdevMountDevice() failed, exiting..." << std::endl;
+            << "fsdevMountDevice() failed, exiting..." << endl;
         return 0;
     }
 
     Logger::get().info() << "Mounted " << (storage ? "SD" : "NAND")
-                         << " storage" << std::endl;
+                         << " storage" << endl;
 
     // Get the initial last file (for comparison)
     // If album is not ready (Err), we'll use the first valid item later
     auto lastItemResult = getLastAlbumItem();
     if (lastItemResult.has_value()) {
         Logger::get().info()
-            << "Current last item: " << lastItemResult.value() << std::endl;
+            << "Current last item: " << lastItemResult.value() << endl;
     } else {
         Logger::get().info()
-            << "Album not ready: " << lastItemResult.error() << std::endl;
+            << "Album not ready: " << lastItemResult.error() << endl;
     }
 
     // Log enabled upload channels
@@ -211,7 +210,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
         if (Config::get().ntfyEnabled()) {
             logger << "[Ntfy]";
         }
-        logger << std::endl;
+        logger << endl;
     }
 
     // Determine Telegram upload mode based on configuration
@@ -219,7 +218,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
         Config::get().getTelegramUploadMode();
     if (Config::get().telegramEnabled()) {
         Logger::get().info()
-            << "Telegram upload mode: " << telegramUploadMode << std::endl;
+            << "Telegram upload mode: " << telegramUploadMode << endl;
     }
 
     // Get check interval configuration
@@ -227,7 +226,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
     const u64 sleepDuration =
         static_cast<u64>(checkInterval) * 1'000'000'000ULL;
     Logger::get().info() << "Check interval: " << checkInterval << " second(s)"
-                         << std::endl;
+                         << endl;
     Logger::get().close();
 
     constexpr std::string_view separator = "=============================";
@@ -261,9 +260,9 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
 
             if (fs > 0) {
                 auto logger = Logger::get().info();
-                logger << separator << std::endl
-                       << "New item found: " << tmpItem << std::endl
-                       << "Filesize: " << fs << std::endl;
+                logger << separator << endl
+                       << "New item found: " << tmpItem << endl
+                       << "Filesize: " << fs << endl;
 
                 bool anySuccess = false;
 
@@ -294,7 +293,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
                     if (!sent) {
                         Logger::get().error()
                             << "[Telegram] Unable to send file after "
-                            << maxRetries << " retries" << std::endl;
+                            << maxRetries << " retries" << endl;
                     } else {
                         anySuccess = true;
                     }
@@ -308,7 +307,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
                     if (!sent) {
                         Logger::get().error()
                             << "[ntfy] Unable to send file after " << maxRetries
-                            << " retries" << std::endl;
+                            << " retries" << endl;
                     } else {
                         anySuccess = true;
                     }
@@ -317,7 +316,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
                 if (!anySuccess) {
                     Logger::get().error()
                         << "All upload destinations failed, skipping..."
-                        << std::endl;
+                        << endl;
                 }
 
                 // Update lastItemResult regardless of success to avoid

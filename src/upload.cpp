@@ -3,7 +3,6 @@
 #include <curl/curl.h>
 
 #include <filesystem>
-#include <iostream>
 #include <string_view>
 
 #include "config.hpp"
@@ -71,13 +70,12 @@ ValidationResult validateUploadFile(std::string_view path,
                                     bool uploadScreenshots, bool uploadMovies) {
     // Extract Title ID (32 chars from the last 36 chars of the path)
     if (path.length() < 36) {
-        Logger::get().error()
-            << logPrefix << "Invalid path length" << std::endl;
+        Logger::get().error() << logPrefix << "Invalid path length" << endl;
         return ValidationResult::Error;
     }
 
     tid = path.substr(path.length() - 36, 32);
-    Logger::get().debug() << logPrefix << "Title ID: " << tid << std::endl;
+    Logger::get().debug() << logPrefix << "Title ID: " << tid << endl;
 
     isMovie = path.back() == '4';
     // Check target-specific config to determine whether this type is allowed to
@@ -85,7 +83,7 @@ ValidationResult validateUploadFile(std::string_view path,
     const bool shouldUpload = isMovie ? uploadMovies : uploadScreenshots;
     if (!shouldUpload) {
         Logger::get().info()
-            << logPrefix << "Skipping upload for " << path << std::endl;
+            << logPrefix << "Skipping upload for " << path << endl;
         return ValidationResult::Skip;
     }
 
@@ -117,13 +115,13 @@ bool sendFileToTelegram(std::string_view path, size_t size, bool compression) {
 
     if (fileTypeInfo.contentType.empty()) {
         Logger::get().error() << logPrefix << "Unknown file extension: "
-                              << filePath.extension().string() << std::endl;
+                              << filePath.extension().string() << endl;
         return false;
     }
 
     FILE* f = std::fopen(filePath.c_str(), "rb");
     if (f == nullptr) {
-        Logger::get().error() << logPrefix << "fopen() failed" << std::endl;
+        Logger::get().error() << logPrefix << "fopen() failed" << endl;
         return false;
     }
 
@@ -141,8 +139,7 @@ bool sendFileToTelegram(std::string_view path, size_t size, bool compression) {
     if (!curl) {
         std::fclose(f);
         curl_formfree(formpost);
-        Logger::get().error()
-            << logPrefix << "curl_easy_init() failed" << std::endl;
+        Logger::get().error() << logPrefix << "curl_easy_init() failed" << endl;
         return false;
     }
 
@@ -162,7 +159,7 @@ bool sendFileToTelegram(std::string_view path, size_t size, bool compression) {
     url += "?chat_id=";
     url += chatId;
 
-    Logger::get().debug() << logPrefix << "URL is " << url << std::endl;
+    Logger::get().debug() << logPrefix << "URL is " << url << endl;
 
     curl_easy_setopt(curl, CURLOPT_POST, 1L);
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
@@ -184,24 +181,24 @@ bool sendFileToTelegram(std::string_view path, size_t size, bool compression) {
 
         Logger::get().debug()
             << logPrefix << requestSize
-            << " bytes sent, response code: " << responseCode << std::endl;
+            << " bytes sent, response code: " << responseCode << endl;
 
         curl_easy_cleanup(curl);
         curl_formfree(formpost);
 
         if (responseCode == 200) {
             Logger::get().info()
-                << logPrefix << "Successfully uploaded " << path << std::endl;
+                << logPrefix << "Successfully uploaded " << path << endl;
             return true;
         }
 
         Logger::get().error()
             << logPrefix << "Error uploading, got response code "
-            << responseCode << std::endl;
+            << responseCode << endl;
         return false;
     } else {
         Logger::get().error() << logPrefix << "curl_easy_perform() failed: "
-                              << curl_easy_strerror(res) << std::endl;
+                              << curl_easy_strerror(res) << endl;
         curl_easy_cleanup(curl);
         curl_formfree(formpost);
         return false;
@@ -229,7 +226,7 @@ bool sendFileToNtfy(std::string_view path, size_t size) {
 
     FILE* f = std::fopen(filePath.c_str(), "rb");
     if (f == nullptr) {
-        Logger::get().error() << logPrefix << "fopen() failed" << std::endl;
+        Logger::get().error() << logPrefix << "fopen() failed" << endl;
         return false;
     }
 
@@ -238,8 +235,7 @@ bool sendFileToNtfy(std::string_view path, size_t size) {
     CURL* curl = curl_easy_init();
     if (!curl) {
         std::fclose(f);
-        Logger::get().error()
-            << logPrefix << "curl_easy_init() failed" << std::endl;
+        Logger::get().error() << logPrefix << "curl_easy_init() failed" << endl;
         return false;
     }
 
@@ -250,8 +246,7 @@ bool sendFileToNtfy(std::string_view path, size_t size) {
     if (topic.empty()) {
         std::fclose(f);
         curl_easy_cleanup(curl);
-        Logger::get().error()
-            << logPrefix << "Topic is not configured" << std::endl;
+        Logger::get().error() << logPrefix << "Topic is not configured" << endl;
         return false;
     }
 
@@ -261,7 +256,7 @@ bool sendFileToNtfy(std::string_view path, size_t size) {
     url += "/";
     url += topic;
 
-    Logger::get().debug() << logPrefix << "URL is " << url << std::endl;
+    Logger::get().debug() << logPrefix << "URL is " << url << endl;
 
     // Build headers
     struct curl_slist* headers = nullptr;
@@ -312,24 +307,24 @@ bool sendFileToNtfy(std::string_view path, size_t size) {
 
         Logger::get().debug()
             << logPrefix << requestSize
-            << " bytes sent, response code: " << responseCode << std::endl;
+            << " bytes sent, response code: " << responseCode << endl;
 
         curl_slist_free_all(headers);
         curl_easy_cleanup(curl);
 
         if (responseCode == 200) {
             Logger::get().info()
-                << logPrefix << "Successfully uploaded " << path << std::endl;
+                << logPrefix << "Successfully uploaded " << path << endl;
             return true;
         }
 
         Logger::get().error()
             << logPrefix << "Error uploading, got response code "
-            << responseCode << std::endl;
+            << responseCode << endl;
         return false;
     } else {
         Logger::get().error() << logPrefix << "curl_easy_perform() failed: "
-                              << curl_easy_strerror(res) << std::endl;
+                              << curl_easy_strerror(res) << endl;
         curl_slist_free_all(headers);
         curl_easy_cleanup(curl);
         return false;

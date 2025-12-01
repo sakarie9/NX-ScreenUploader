@@ -20,6 +20,10 @@ enum class LogLevel : uint8_t {
     NONE = 10,
 };
 
+// Custom end-of-line marker to avoid iostream dependency
+struct EndLine {};
+inline constexpr EndLine endl{};
+
 inline constexpr std::string_view LOGFILE_PATH =
     "sdmc:/config/" APP_TITLE "/logs.txt";
 
@@ -88,9 +92,8 @@ class LogMessage {
         return *this << (val ? "true" : "false");
     }
 
-    // Support for std::endl and other manipulators
-    LogMessage& operator<<(std::ostream& (*)(std::ostream&)) {
-        // Handle std::endl by flushing a newline
+    // Support for custom endl marker (avoids iostream dependency)
+    LogMessage& operator<<(EndLine) {
         if (m_file) {
             std::fputc('\n', m_file);
             std::fflush(m_file);
