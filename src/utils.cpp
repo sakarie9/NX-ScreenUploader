@@ -3,6 +3,9 @@
 #include <sys/stat.h>
 
 #include <algorithm>
+#include <ranges>
+#include <string>
+#include <string_view>
 #include <vector>
 
 #ifdef ENABLE_TIME_FUNCTIONS
@@ -19,39 +22,49 @@ constexpr bool isDigitsOnly(std::string_view str) noexcept {
                                [](char c) { return c >= '0' && c <= '9'; });
 }
 
+// Use template parameter to avoid lambda overhead, directly compare filename strings
 template <size_t ExpectedLen>
-[[nodiscard]] bool isValidDigitPath(const fs::directory_entry& entry) noexcept {
-    if (!entry.is_directory()) return false;
-    const auto filename = entry.path().filename().string();
-    return filename.length() == ExpectedLen && isDigitsOnly(filename);
-}
+[[nodiscard]] fs::path findMaxDir(const fs::path& dir) noexcept {
+    fs::path max_path;
+    std::string max_filename;
 
-// Helper to find maximum path in directory matching a predicate using ranges
-template <size_t ExpectedLen>
-[[nodiscard]] fs::path findMaxPath(const fs::path& dir) {
-    std::vector<fs::path> paths;
     for (const auto& entry : fs::directory_iterator(dir)) {
-        if (isValidDigitPath<ExpectedLen>(entry)) {
-            paths.push_back(entry.path());
+        if (!entry.is_directory()) continue;
+
+        const auto& p = entry.path();
+        auto filename = p.filename().string();
+
+        if (filename.length() != ExpectedLen || !isDigitsOnly(filename))
+            continue;
+
+        if (filename > max_filename) {
+            max_filename = std::move(filename);
+            max_path = p;
         }
     }
 
-    if (paths.empty()) return {};
-    return *std::ranges::max_element(paths);
+    return max_path;
 }
 
-// Helper to find maximum file path in directory using ranges
-[[nodiscard]] fs::path findMaxFile(const fs::path& dir) {
-    std::vector<fs::path> paths;
+[[nodiscard]] fs::path findMaxFileInDir(const fs::path& dir) noexcept {
+    fs::path max_path;
+    std::string max_filename;
+
     for (const auto& entry : fs::directory_iterator(dir)) {
-        if (entry.is_regular_file()) {
-            paths.push_back(entry.path());
+        if (!entry.is_regular_file()) continue;
+
+        const auto& p = entry.path();
+        auto filename = p.filename().string();
+
+        if (filename > max_filename) {
+            max_filename = std::move(filename);
+            max_path = p;
         }
     }
 
-    if (paths.empty()) return {};
-    return *std::ranges::max_element(paths);
+    return max_path;
 }
+
 }  // namespace
 
 std::expected<std::string, std::string> getLastAlbumItem() {
@@ -59,35 +72,37 @@ std::expected<std::string, std::string> getLastAlbumItem() {
     const auto startTime = std::chrono::high_resolution_clock::now();
 #endif
 
-    constexpr std::string_view albumPath = ALBUM_PATH;
-    if (!fs::is_directory(albumPath))
-        return std::unexpected("No album directory: img:/");
+    // 1. Find Year (Length 4, Directory)
+    const fs::path year = findMaxDir<4>(ALBUM_PATH);
+    if (year.empty())
+        return std::unexpected("No valid year directories in img:/");
 
-    // Find the largest year directory
-    const fs::path maxYear = findMaxPath<4>(albumPath);
-    if (maxYear.empty()) return std::unexpected("No years in img:/");
+    // 2. Find Month (Length 2, Directory)
+    const fs::path month = findMaxDir<2>(year);
+    if (month.empty())
+        return std::unexpected("No valid month directories in " +
+                               year.string());
 
-    // Find the largest month directory
-    const fs::path maxMonth = findMaxPath<2>(maxYear);
-    if (maxMonth.empty()) return std::unexpected("No months in year");
+    // 3. Find Day (Length 2, Directory)
+    const fs::path day = findMaxDir<2>(month);
+    if (day.empty())
+        return std::unexpected("No valid day directories in " + month.string());
 
-    // Find the largest day directory
-    const fs::path maxDay = findMaxPath<2>(maxMonth);
-    if (maxDay.empty()) return std::unexpected("No days in month");
-
-    // Find the latest file (lexicographically largest)
-    const fs::path maxFile = findMaxFile(maxDay);
-    if (maxFile.empty()) return std::unexpected("No screenshots in day");
+    // 4. Find File (Regular File)
+    const fs::path file = findMaxFileInDir(day);
+    if (file.empty())
+        return std::unexpected("No files found in " + day.string());
 
 #ifdef ENABLE_TIME_FUNCTIONS
     const auto endTime = std::chrono::high_resolution_clock::now();
     const auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(
         endTime - startTime);
-    Logger::get().info() << "[getLastAlbumItem] Success: " << maxFile.string()
-                         << " (" << duration.count() << "ns)" << endl;
+    Logger::get().info() << "[getLastAlbumItem] Success " << " ("
+                         << duration.count() << "ns)" << endl;
+    Logger::get().close();
 #endif
 
-    return maxFile.string();
+    return file.string();
 }
 
 size_t filesize(std::string_view path) {
