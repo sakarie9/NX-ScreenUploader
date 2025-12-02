@@ -29,6 +29,9 @@ class Config {
     [[nodiscard]] constexpr bool ntfyEnabled() const noexcept {
         return m_ntfyEnabled;
     }
+    [[nodiscard]] constexpr bool discordEnabled() const noexcept {
+        return m_discordEnabled;
+    }
 
     // Telegram configuration
     [[nodiscard]] std::string_view getTelegramBotToken() const noexcept;
@@ -56,6 +59,17 @@ class Config {
         return m_ntfyUploadMovies;
     }
 
+    // Discord configuration
+    [[nodiscard]] std::string_view getDiscordBotToken() const noexcept;
+    [[nodiscard]] std::string_view getDiscordChannelId() const noexcept;
+    [[nodiscard]] std::string_view getDiscordApiUrl() const noexcept;
+    [[nodiscard]] constexpr bool discordUploadScreenshots() const noexcept {
+        return m_discordUploadScreenshots;
+    }
+    [[nodiscard]] constexpr bool discordUploadMovies() const noexcept {
+        return m_discordUploadMovies;
+    }
+
     bool error{false};
 
    private:
@@ -66,6 +80,7 @@ class Config {
     // Upload destination toggles
     bool m_telegramEnabled{ConfigDefaults::TELEGRAM_ENABLED};
     bool m_ntfyEnabled{ConfigDefaults::NTFY_ENABLED};
+    bool m_discordEnabled{ConfigDefaults::DISCORD_ENABLED};
 
     // Telegram configuration
     std::string m_telegramBotToken{ConfigDefaults::TELEGRAM_BOT_TOKEN};
@@ -83,6 +98,14 @@ class Config {
     std::string m_ntfyPriority{ConfigDefaults::NTFY_PRIORITY};
     bool m_ntfyUploadScreenshots{ConfigDefaults::NTFY_UPLOAD_SCREENSHOTS};
     bool m_ntfyUploadMovies{ConfigDefaults::NTFY_UPLOAD_MOVIES};
+
+    // Discord configuration
+    std::string m_discordBotToken{ConfigDefaults::DISCORD_BOT_TOKEN};
+    std::string m_discordChannelId{ConfigDefaults::DISCORD_CHANNEL_ID};
+    std::string m_discordApiUrl{ConfigDefaults::DISCORD_API_URL};
+    bool m_discordUploadScreenshots{
+        ConfigDefaults::DISCORD_UPLOAD_SCREENSHOTS};
+    bool m_discordUploadMovies{ConfigDefaults::DISCORD_UPLOAD_MOVIES};
 
     // General settings
     bool m_keepLogs{ConfigDefaults::KEEP_LOGS};

@@ -331,6 +331,122 @@ bool sendFileToNtfy(std::string_view path, size_t size) {
     }
 }
 
+bool sendFileToDiscord(std::string_view path, size_t size) {
+    constexpr std::string_view logPrefix = "[Discord] ";
+    std::string_view tid;
+    bool isMovie;
+
+    // Validate file and check if upload is needed
+    const auto validationResult =
+        validateUploadFile(path, logPrefix, tid, isMovie,
+                           Config::get().discordUploadScreenshots(),
+                           Config::get().discordUploadMovies());
+    if (validationResult == ValidationResult::Error) {
+        return false;
+    }
+    if (validationResult == ValidationResult::Skip) {
+        return true;  // Not an error, just skipping per config
+    }
+
+    const fs::path filePath{path};
+    const std::string filename = filePath.filename().string();
+
+    FILE* f = std::fopen(filePath.c_str(), "rb");
+    if (f == nullptr) {
+        Logger::get().error() << logPrefix << "fopen() failed" << endl;
+        return false;
+    }
+
+    UploadInfo ui{f, size};
+    struct curl_httppost* formpost = nullptr;
+    struct curl_httppost* lastptr = nullptr;
+
+    curl_formadd(&formpost, &lastptr,
+                 CURLFORM_COPYNAME, "files[0]",
+                 CURLFORM_FILENAME, filePath.filename().string().c_str(),
+                 CURLFORM_STREAM, &ui,
+                 CURLFORM_CONTENTSLENGTH, size,
+                 CURLFORM_END);
+
+    CURL* curl = curl_easy_init();
+    if (!curl) {
+        std::fclose(f);
+        curl_formfree(formpost);
+        Logger::get().error() << logPrefix << "curl_easy_init() failed" << endl;
+        return false;
+    }
+
+    // Build URL
+    const auto apiUrl = Config::get().getDiscordApiUrl();
+    const auto botToken = Config::get().getDiscordBotToken();
+    const auto channelId = Config::get().getDiscordChannelId();
+
+    std::string url;
+    url.reserve(apiUrl.size() + channelId.size() + 3);
+    url = apiUrl;
+    url += "/channels/";
+    url += channelId;
+    url += "/messages";
+
+    Logger::get().debug() << logPrefix << "URL is " << url << endl;
+
+    // Build headers
+    struct curl_slist* headers = nullptr;
+
+    std::string authHeader = "Authorization: Bot ";
+    authHeader += botToken;
+    headers = curl_slist_append(headers, authHeader.c_str());
+
+    curl_easy_setopt(curl, CURLOPT_POST, 1L);
+    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(curl, CURLOPT_READFUNCTION, uploadReadFunction);
+    curl_easy_setopt(curl, CURLOPT_READDATA, &ui);
+    curl_easy_setopt(curl, CURLOPT_INFILESIZE_LARGE,
+                     static_cast<curl_off_t>(size));
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+    curl_easy_setopt(curl, CURLOPT_HTTPPOST, formpost);
+    curl_easy_setopt(curl, CURLOPT_BUFFERSIZE, NX_CURL_BUFFERSIZE);
+    curl_easy_setopt(curl, CURLOPT_UPLOAD_BUFFERSIZE,
+                     NX_CURL_UPLOAD_BUFFERSIZE);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, NX_CURL_TIMEOUT);
+
+    const CURLcode res = curl_easy_perform(curl);
+    std::fclose(f);
+
+    if (res == CURLE_OK) {
+        long responseCode;
+        double requestSize;
+        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &responseCode);
+        curl_easy_getinfo(curl, CURLINFO_SIZE_UPLOAD, &requestSize);
+
+        Logger::get().debug()
+            << logPrefix << requestSize
+            << " bytes sent, response code: " << responseCode << endl;
+
+        curl_easy_cleanup(curl);
+        curl_formfree(formpost);
+        curl_slist_free_all(headers);
+
+        if (responseCode == 200 || responseCode == 201) {
+            Logger::get().info()
+                << logPrefix << "Successfully uploaded " << path << endl;
+            return true;
+        }
+
+        Logger::get().error()
+            << logPrefix << "Error uploading, got response code "
+            << responseCode << endl;
+        return false;
+    } else {
+        Logger::get().error() << logPrefix << "curl_easy_perform() failed: "
+                              << curl_easy_strerror(res) << endl;
+        curl_easy_cleanup(curl);
+        curl_formfree(formpost);
+        curl_slist_free_all(headers);
+        return false;
+    }
+}
+
 // Legacy wrapper for backward compatibility
 bool sendFileToServer(std::string_view path, size_t size, bool compression) {
     return sendFileToTelegram(path, size, compression);

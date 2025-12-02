@@ -5,6 +5,7 @@
 ; Multiple destinations can be enabled simultaneously
 telegram = false
 ntfy = false
+discord = true
 
 ; Check interval in seconds (default: 3, minimum: 1)
 ; How often to check for new screenshots/videos
@@ -60,5 +61,20 @@ topic = your-unique-topic-name
 
 ; Upload settings for ntfy.sh
 ; Note: ntfy has file size limitations (2 MB on ntfy.sh), movie uploads will likely fail if using the official server
+upload_screenshots = true
+upload_movies = false
+
+; ===== Discord Configuration =====
+[discord]
+; replace with your own token, the value below is an example and will not work
+bot_token = 123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11
+; replace with your own channel id, the value below is an example and will not work
+channel_id = 123456789
+
+; Discord API URL (if it ever needs to get changed)
+; api_url = https://discord.com/api/v10
+
+; Upload settings for Discord
+; Movies wont work unless you are a p2w user due to size limitations
 upload_screenshots = true
 upload_movies = false
