@@ -11,7 +11,3 @@
 
 // Send file to Discord (always original, no compression)
 [[nodiscard]] bool sendFileToDiscord(std::string_view path, size_t size);
-
-// Legacy alias for backward compatibility
-[[nodiscard]] bool sendFileToServer(std::string_view path, size_t size,
-                                    bool compression);

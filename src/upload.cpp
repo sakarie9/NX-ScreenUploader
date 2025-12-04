@@ -443,8 +443,3 @@ bool sendFileToDiscord(std::string_view path, size_t size) {
         return false;
     }
 }
-
-// Legacy wrapper for backward compatibility
-bool sendFileToServer(std::string_view path, size_t size, bool compression) {
-    return sendFileToTelegram(path, size, compression);
-}
