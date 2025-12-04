@@ -30,7 +30,7 @@ constexpr bool KEEP_LOGS = false;
 // ============================================================================
 constexpr bool TELEGRAM_ENABLED = false;
 constexpr bool NTFY_ENABLED = false;
-constexpr bool DISCORD_ENABLED = true;
+constexpr bool DISCORD_ENABLED = false;
 
 // ============================================================================
 // Telegram configuration
@@ -98,7 +98,7 @@ constexpr bool isNtfyValid(std::string_view topic) noexcept {
  * Returns true if Discord is properly configured
  */
 constexpr bool isDiscordValid(std::string_view botToken,
-                               std::string_view channelId) noexcept {
+                              std::string_view channelId) noexcept {
     // Both token and chat ID must be non-empty
     return !botToken.empty() && !channelId.empty();
 }

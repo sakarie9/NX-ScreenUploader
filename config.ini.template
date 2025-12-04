@@ -5,7 +5,7 @@
 ; Multiple destinations can be enabled simultaneously
 telegram = false
 ntfy = false
-discord = true
+discord = false
 
 ; Check interval in seconds (default: 3, minimum: 1)
 ; How often to check for new screenshots/videos
@@ -67,9 +67,9 @@ upload_movies = false
 ; ===== Discord Configuration =====
 [discord]
 ; replace with your own token, the value below is an example and will not work
-bot_token = 123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11
+bot_token = abcdefg.hjkl.whatever_aegeaseg3-feasfhr7
 ; replace with your own channel id, the value below is an example and will not work
-channel_id = 123456789
+channel_id = 1234567890987654321
 
 ; Discord API URL (if it ever needs to get changed)
 ; api_url = https://discord.com/api/v10

@@ -87,19 +87,19 @@ bool Config::refresh() {
         "ntfy", "upload_screenshots", ConfigDefaults::NTFY_UPLOAD_SCREENSHOTS);
     m_ntfyUploadMovies = ini_get_bool("ntfy", "upload_movies",
                                       ConfigDefaults::NTFY_UPLOAD_MOVIES);
-    
+
     // Read Discord configuration from [discord] section
     m_discordBotToken = ini_get_string("discord", "bot_token",
-                                        ConfigDefaults::DISCORD_BOT_TOKEN);
-    m_discordChannelId =
-        ini_get_string("discord", "channel_id", ConfigDefaults::DISCORD_CHANNEL_ID);
+                                       ConfigDefaults::DISCORD_BOT_TOKEN);
+    m_discordChannelId = ini_get_string("discord", "channel_id",
+                                        ConfigDefaults::DISCORD_CHANNEL_ID);
     m_discordApiUrl =
         ini_get_string("discord", "api_url", ConfigDefaults::DISCORD_API_URL);
     m_discordUploadScreenshots =
         ini_get_bool("discord", "upload_screenshots",
                      ConfigDefaults::DISCORD_UPLOAD_SCREENSHOTS);
-    m_discordUploadMovies = ini_get_bool(
-        "discord", "upload_movies", ConfigDefaults::DISCORD_UPLOAD_MOVIES);                   
+    m_discordUploadMovies = ini_get_bool("discord", "upload_movies",
+                                         ConfigDefaults::DISCORD_UPLOAD_MOVIES);
 
     // Read general settings
     m_keepLogs =
@@ -147,7 +147,7 @@ bool Config::refresh() {
 
     // Validate Discord configuration
     if (m_discordEnabled && !ConfigDefaults::isDiscordValid(
-                                 m_discordBotToken, m_discordChannelId)) {
+                                m_discordBotToken, m_discordChannelId)) {
         Logger::get().warn()
             << "discord channel disabled: Invalid or missing configuration "
                "(bot_token and/or channel_id are not set or are set to "

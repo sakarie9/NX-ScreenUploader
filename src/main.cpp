@@ -323,8 +323,8 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
 
                     if (!sent) {
                         Logger::get().error()
-                            << "[Discord] Unable to send file after " << maxRetries
-                            << " retries" << endl;
+                            << "[Discord] Unable to send file after "
+                            << maxRetries << " retries" << endl;
                     } else {
                         anySuccess = true;
                     }

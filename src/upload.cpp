@@ -337,10 +337,9 @@ bool sendFileToDiscord(std::string_view path, size_t size) {
     bool isMovie;
 
     // Validate file and check if upload is needed
-    const auto validationResult =
-        validateUploadFile(path, logPrefix, tid, isMovie,
-                           Config::get().discordUploadScreenshots(),
-                           Config::get().discordUploadMovies());
+    const auto validationResult = validateUploadFile(
+        path, logPrefix, tid, isMovie, Config::get().discordUploadScreenshots(),
+        Config::get().discordUploadMovies());
     if (validationResult == ValidationResult::Error) {
         return false;
     }
@@ -361,11 +360,9 @@ bool sendFileToDiscord(std::string_view path, size_t size) {
     struct curl_httppost* formpost = nullptr;
     struct curl_httppost* lastptr = nullptr;
 
-    curl_formadd(&formpost, &lastptr,
-                 CURLFORM_COPYNAME, "files[0]",
+    curl_formadd(&formpost, &lastptr, CURLFORM_COPYNAME, "files[0]",
                  CURLFORM_FILENAME, filePath.filename().string().c_str(),
-                 CURLFORM_STREAM, &ui,
-                 CURLFORM_CONTENTSLENGTH, size,
+                 CURLFORM_STREAM, &ui, CURLFORM_CONTENTSLENGTH, size,
                  CURLFORM_END);
 
     CURL* curl = curl_easy_init();

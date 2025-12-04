@@ -103,8 +103,7 @@ class Config {
     std::string m_discordBotToken{ConfigDefaults::DISCORD_BOT_TOKEN};
     std::string m_discordChannelId{ConfigDefaults::DISCORD_CHANNEL_ID};
     std::string m_discordApiUrl{ConfigDefaults::DISCORD_API_URL};
-    bool m_discordUploadScreenshots{
-        ConfigDefaults::DISCORD_UPLOAD_SCREENSHOTS};
+    bool m_discordUploadScreenshots{ConfigDefaults::DISCORD_UPLOAD_SCREENSHOTS};
     bool m_discordUploadMovies{ConfigDefaults::DISCORD_UPLOAD_MOVIES};
 
     // General settings
