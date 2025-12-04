@@ -56,6 +56,8 @@ bool Config::refresh() {
         ini_get_bool("general", "telegram", ConfigDefaults::TELEGRAM_ENABLED);
     m_ntfyEnabled =
         ini_get_bool("general", "ntfy", ConfigDefaults::NTFY_ENABLED);
+    m_discordEnabled =
+        ini_get_bool("general", "discord", ConfigDefaults::DISCORD_ENABLED);
 
     // Read Telegram configuration from [telegram] section
     m_telegramBotToken = ini_get_string("telegram", "bot_token",
@@ -85,6 +87,19 @@ bool Config::refresh() {
         "ntfy", "upload_screenshots", ConfigDefaults::NTFY_UPLOAD_SCREENSHOTS);
     m_ntfyUploadMovies = ini_get_bool("ntfy", "upload_movies",
                                       ConfigDefaults::NTFY_UPLOAD_MOVIES);
+
+    // Read Discord configuration from [discord] section
+    m_discordBotToken = ini_get_string("discord", "bot_token",
+                                       ConfigDefaults::DISCORD_BOT_TOKEN);
+    m_discordChannelId = ini_get_string("discord", "channel_id",
+                                        ConfigDefaults::DISCORD_CHANNEL_ID);
+    m_discordApiUrl =
+        ini_get_string("discord", "api_url", ConfigDefaults::DISCORD_API_URL);
+    m_discordUploadScreenshots =
+        ini_get_bool("discord", "upload_screenshots",
+                     ConfigDefaults::DISCORD_UPLOAD_SCREENSHOTS);
+    m_discordUploadMovies = ini_get_bool("discord", "upload_movies",
+                                         ConfigDefaults::DISCORD_UPLOAD_MOVIES);
 
     // Read general settings
     m_keepLogs =
@@ -130,8 +145,19 @@ bool Config::refresh() {
         m_ntfyEnabled = false;
     }
 
+    // Validate Discord configuration
+    if (m_discordEnabled && !ConfigDefaults::isDiscordValid(
+                                m_discordBotToken, m_discordChannelId)) {
+        Logger::get().warn()
+            << "discord channel disabled: Invalid or missing configuration "
+               "(bot_token and/or channel_id are not set or are set to "
+               "'undefined')"
+            << endl;
+        m_discordEnabled = false;
+    }
+
     // Check if at least one channel is enabled
-    if (!m_telegramEnabled && !m_ntfyEnabled) {
+    if (!m_telegramEnabled && !m_ntfyEnabled && !m_discordEnabled) {
         return false;  // Indicate failure - no valid upload channel available
     }
 
@@ -148,6 +174,18 @@ std::string_view Config::getTelegramChatId() const noexcept {
 
 std::string_view Config::getTelegramApiUrl() const noexcept {
     return m_telegramApiUrl;
+}
+
+std::string_view Config::getDiscordBotToken() const noexcept {
+    return m_discordBotToken;
+}
+
+std::string_view Config::getDiscordChannelId() const noexcept {
+    return m_discordChannelId;
+}
+
+std::string_view Config::getDiscordApiUrl() const noexcept {
+    return m_discordApiUrl;
 }
 
 std::string_view Config::getNtfyUrl() const noexcept { return m_ntfyUrl; }

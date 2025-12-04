@@ -143,7 +143,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
     if (!Config::get().refresh()) {
         Logger::get().error()
             << "Configuration validation failed: No valid upload channel "
-               "available (both Telegram and Ntfy are disabled or "
+               "available (Telegram, Ntfy and Discord are disabled or "
                "misconfigured)."
             << endl;
         Logger::get().error() << "Please check your config.ini file and ensure "
@@ -209,6 +209,9 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
         }
         if (Config::get().ntfyEnabled()) {
             logger << "[Ntfy]";
+        }
+        if (Config::get().discordEnabled()) {
+            logger << "[Discord]";
         }
         logger << endl;
     }
@@ -308,6 +311,20 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
                         Logger::get().error()
                             << "[ntfy] Unable to send file after " << maxRetries
                             << " retries" << endl;
+                    } else {
+                        anySuccess = true;
+                    }
+                }
+
+                // Upload to Discord (always original, no compression)
+                if (Config::get().discordEnabled()) {
+                    const bool sent = retryUpload(
+                        [&] { return sendFileToDiscord(tmpItem, fs); });
+
+                    if (!sent) {
+                        Logger::get().error()
+                            << "[Discord] Unable to send file after "
+                            << maxRetries << " retries" << endl;
                     } else {
                         anySuccess = true;
                     }

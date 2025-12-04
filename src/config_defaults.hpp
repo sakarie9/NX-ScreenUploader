@@ -28,8 +28,9 @@ constexpr bool KEEP_LOGS = false;
 // ============================================================================
 // Upload destination toggles
 // ============================================================================
-constexpr bool TELEGRAM_ENABLED = true;
+constexpr bool TELEGRAM_ENABLED = false;
 constexpr bool NTFY_ENABLED = false;
+constexpr bool DISCORD_ENABLED = false;
 
 // ============================================================================
 // Telegram configuration
@@ -50,6 +51,15 @@ constexpr std::string_view NTFY_TOKEN = "";
 constexpr std::string_view NTFY_PRIORITY = "default";
 constexpr bool NTFY_UPLOAD_SCREENSHOTS = true;
 constexpr bool NTFY_UPLOAD_MOVIES = false;
+
+// ============================================================================
+// Discord configuration
+// ============================================================================
+constexpr std::string_view DISCORD_BOT_TOKEN = "";
+constexpr std::string_view DISCORD_CHANNEL_ID = "";
+constexpr std::string_view DISCORD_API_URL = "https://discord.com/api/v10";
+constexpr bool DISCORD_UPLOAD_SCREENSHOTS = true;
+constexpr bool DISCORD_UPLOAD_MOVIES = false;
 
 // ============================================================================
 // Configuration validation utilities
@@ -81,6 +91,16 @@ constexpr bool isTelegramValid(std::string_view botToken,
 constexpr bool isNtfyValid(std::string_view topic) noexcept {
     // Topic must be non-empty
     return !topic.empty();
+}
+
+/**
+ * Check if Discord configuration is valid
+ * Returns true if Discord is properly configured
+ */
+constexpr bool isDiscordValid(std::string_view botToken,
+                              std::string_view channelId) noexcept {
+    // Both token and chat ID must be non-empty
+    return !botToken.empty() && !channelId.empty();
 }
 
 }  // namespace ConfigDefaults
