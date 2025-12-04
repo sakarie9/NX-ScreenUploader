@@ -4,12 +4,12 @@
 
 `NX-ScreenUploader` 自动将你在 Nintendo Switch 上拍摄的截图和录像发送到 Telegram 和/或 ntfy.sh，让你更容易地访问和分享它们。
 
-本项目是从 [bakatrouble/sys-screenuploader](https://github.com/bakatrouble/sys-screenuploader)、[musse/sys-screen-capture-uploader](https://github.com/musse/sys-screen-capture-uploader) 和 [yuno-kojo/sys-screen-capture-uploader](https://github.com/yuno-kojo/sys-screen-capture-uploader) 分叉而来。与原项目不同的是，不需要中间服务器。屏幕截图直接上传到 Telegram API 或 ntfy.sh 服务。
+本项目是从 [bakatrouble/sys-screenuploader](https://github.com/bakatrouble/sys-screenuploader)、[musse/sys-screen-capture-uploader](https://github.com/musse/sys-screen-capture-uploader) 和 [yuno-kojo/sys-screen-capture-uploader](https://github.com/yuno-kojo/sys-screen-capture-uploader) 分叉而来。与原项目不同的是，不需要中间服务器。屏幕截图直接上传到 Telegram、ntfy.sh 或 Discord。
 
 ## 功能特性
 
 - 自动上传 Switch 上拍摄的截图和录像
-- 多个上传目标：Telegram 和/或 ntfy.sh
+- 多个上传目标：Telegram、Discord、ntfy.sh
 - 支持自定义 Telegram Bot API URL（用于反向代理）
 - 支持自定义新屏幕截图检查间隔
 - 相比原项目内存使用量更少（从 ~1.852 MB 降低到 ~1.339 MB）
@@ -23,7 +23,11 @@
 
 你可以选择上传到 Telegram、ntfy.sh 或两者。至少配置一个上传目标。
 
-### 选项 1：Telegram
+### 准备目标
+
+必须至少配置一个上传目标。
+
+#### Telegram
 
 要使用 Telegram，你必须创建自己的 Telegram 机器人。它将把你的 Switch 屏幕截图发送给你（仅你一个人）的私聊。
 
@@ -31,7 +35,7 @@
 2. 从应该接收截图的 Telegram 用户向你的机器人发送任何消息。
 3. 在浏览器中打开 `https://api.telegram.org/bot<your-bot-token>/getUpdates`。你应该会看到一个包含你的消息的单一结果。记下聊天 ID（在 [`jq`](https://stedolan.github.io/jq/) 过滤器符号中为 `.result[0].message.chat.id`）。
 
-### 选项 2：ntfy.sh
+#### ntfy.sh
 
 [ntfy.sh](https://ntfy.sh) 是一个简单的基于 HTTP 的发布-订阅通知服务。你可以使用公共实例或托管自己的实例。
 
@@ -41,13 +45,24 @@
 2. （可选）如果你想保护你的主题，请在 [ntfy.sh/account](https://ntfy.sh/account) 创建访问令牌
 3. 使用 ntfy 移动应用或网页界面订阅你的主题（例如 `https://ntfy.sh/my-switch-captures-abcdefg`）
 
+#### Discord
+
+要使用 Discord，你必须创建自己的 Discord APP 和 Bot。它将把你的 Switch 屏幕截图发送到你服务器中指定的频道。
+
+Discord 的配置比 Telegram 和 ntfy.sh 稍微复杂一些。
+
+按照 [Creating a Bot Account](https://discordpy.readthedocs.io/en/stable/discord.html) 获取你的 `Bot Token` 并邀请机器人加入你的服务器，并具有适当的权限（至少是"Send Messages"）。
+
+然后获取你想发送截图的频道的 `Channel ID`。你可以在 Discord 设置中启用开发者模式，然后右键单击所需频道并选择"复制频道 ID"。
+
 ### 安装
 
 1. 下载 [最新版本](https://github.com/sakarie9/NX-ScreenUploader)并将其解压到某处。
 2. 将 `config/NX-ScreenUploader/config.ini.template` 复制到 `config/NX-ScreenUploader/config.ini` 并配置你的上传目标：
    - **对于 Telegram**：在 `[general]` 中设置 `telegram = true`，然后在 `[telegram]` 部分配置 `bot_token` 和 `chat_id`
    - **对于 ntfy.sh**：在 `[general]` 中设置 `ntfy = true`，然后在 `[ntfy]` 部分配置 `topic`（和可选的 `token`）
-   - 你可以同时启用两个目标
+   - **对于 Discord**：在 `[general]` 中设置 `discord = true`，然后在 `[discord]` 部分配置 `bot_token` 和 `channel_id`
+   - 你可以同时启用多个目标
 3. 将发布内容复制到你的 SD 卡的根目录。
 
 ## 开发
