@@ -47,12 +47,8 @@ if (NOT DEFINED CMAKE_BUILD_TYPE_INIT)
 endif ()
 
 set(CMAKE_C_STANDARD 99)
-if (USE_CPP_23)
-    set(CXX_STANDARD_REQUIRED)
-    set(CMAKE_CXX_STANDARD 23)
-else ()
-    set(CMAKE_CXX_STANDARD 11)
-endif ()
+set(CXX_STANDARD_REQUIRED)
+set(CMAKE_CXX_STANDARD 23)
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
     include(clang-utils)
@@ -102,7 +98,7 @@ include(src/CMakeLists.txt)
 target_link_libraries(${HOMEBREW_APP}.elf ${CURL_LIBRARIES} ${ZLIB_LIBRARIES} switch::libnx minIni)
 set_target_properties(${HOMEBREW_APP}.elf PROPERTIES
         LINKER_LANGUAGE CXX # Replace this with C if you have C source files
-        LINK_FLAGS "-specs=${LIBNX}/switch.specs -march=armv8-a+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE -Wl,--as-needed -Wl,--gc-sections -Wl,--strip-all -Wl,-Map,.map")
+        LINK_FLAGS "-specs=${LIBNX}/switch.specs -march=armv8-a+simd+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE -Wl,--as-needed -Wl,--gc-sections -Wl,--strip-all -Wl,-Map,.map")
 
 #build_switch_binaries(test.elf)
 #build_switch_sysmodule(${HOMEBREW_APP}.elf)

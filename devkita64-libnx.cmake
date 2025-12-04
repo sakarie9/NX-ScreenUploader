@@ -52,10 +52,14 @@ set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
 
 add_definitions(-D__SWITCH__)
-set(ARCH "-march=armv8-a+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -MMD -MP -g -Wall -O2 -ffunction-sections -fdata-sections -ffast-math -fomit-frame-pointer -fno-stack-protector ${ARCH}")
-set(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} ${CMAKE_CXX_FLAGS} -fno-exceptions -fno-rtti -fvisibility-inlines-hidden")
-set(CMAKE_EXE_LINKER_FLAGS_INIT "${ARCH} -ftls-model=local-exec -L${LIBNX}/lib -L${PORTLIBS}/lib")
+set(ARCH "-march=armv8-a+simd+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE")
+
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -MMD -MP -Wall -O3 -ffunction-sections -fdata-sections -fomit-frame-pointer -finline-small-functions -fno-strict-aliasing -frename-registers -falign-functions=16 ${ARCH}")
+set(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} ${CMAKE_CXX_FLAGS} -Wno-dangling-else -ffast-math -fno-exceptions -fno-rtti -fvisibility-inlines-hidden")
+
+set(CMAKE_ASM_FLAGS "${ARCH}")
+
+set(CMAKE_EXE_LINKER_FLAGS_INIT "${ARCH} -ftls-model=local-exec -L${LIBNX}/lib -L${PORTLIBS}/lib -Wl,--gc-sections -Wl,--as-needed")
 set(CMAKE_MODULE_LINKER_FLAGS_INIT ${CMAKE_EXE_LINKER_FLAGS_INIT})
 
 set(BUILD_SHARED_LIBS OFF CACHE INTERNAL "Shared libs not available")
