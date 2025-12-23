@@ -14,7 +14,7 @@ namespace {
 
 constexpr size_t NX_CURL_BUFFERSIZE = 0x2000L;         // 8KB
 constexpr size_t NX_CURL_UPLOAD_BUFFERSIZE = 0x2000L;  // 8KB
-constexpr long NX_CURL_TIMEOUT = 300L;                 // 5 minutes timeout
+constexpr long NX_CURL_TIMEOUT = 30L;                 // 30 seconds timeout
 
 struct UploadInfo {
     FILE* f;
