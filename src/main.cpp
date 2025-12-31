@@ -2,6 +2,7 @@
 #include <dirent.h>
 #include <switch.h>
 
+#include <cstring>
 #include <string_view>
 
 #include "config.hpp"
@@ -12,8 +13,26 @@
 
 namespace {
 // Reduce heap size for memory optimization
-// 0x40000 (256KB) will oom, 0x50000 (320KB) is minimum stable
-constexpr size_t INNER_HEAP_SIZE = 0x50000;
+constexpr size_t INNER_HEAP_SIZE = 0x60000;  // 344KB
+
+// Upload task with fixed-size buffer (no heap allocation)
+struct UploadTask {
+    char filePath[128];  // Fixed buffer for path
+    size_t fileSize;
+    bool valid;
+};
+
+// Simple circular queue with static allocation
+constexpr size_t MAX_QUEUE_SIZE = 8;
+UploadTask g_uploadQueue[MAX_QUEUE_SIZE];
+size_t g_queueHead = 0;  // Read position
+size_t g_queueTail = 0;  // Write position
+size_t g_queueCount = 0;
+
+Mutex g_queueMutex;
+Thread g_uploadThread;  // Static thread object
+volatile bool g_threadRunning = false;
+volatile bool g_threadCreated = false;
 constexpr size_t TCP_TX_BUF_SIZE = 0x800;
 constexpr size_t TCP_RX_BUF_SIZE = 0x1000;
 constexpr size_t TCP_TX_BUF_SIZE_MAX = 0x2EE0;
@@ -129,6 +148,131 @@ void initLogger(bool truncate) {
     logger << separator << endl;
 }
 
+// Exponential backoff delay helper (1s, 2s, 4s...)
+inline void exponentialBackoff(int retryCount) {
+    const u64 delayMs = (1ULL << retryCount) * 1000ULL;
+    svcSleepThread(delayMs * 1'000'000ULL);
+}
+
+// Upload worker thread function
+void uploadWorkerThread(void* arg) {
+    constexpr std::string_view separator = "=============================";
+
+    Logger::get().info() << "[Worker] Started" << endl;
+
+    // Get config values once
+    const std::string_view telegramUploadMode =
+        Config::get().getTelegramUploadMode();
+    const bool telegramEnabled = Config::get().telegramEnabled();
+    const bool ntfyEnabled = Config::get().ntfyEnabled();
+    const bool discordEnabled = Config::get().discordEnabled();
+
+    // Process all tasks in queue until empty
+    while (true) {
+        char filePath[128];
+        size_t fileSize = 0;
+        bool hasTask = false;
+
+        // Try to get a task from the queue
+        mutexLock(&g_queueMutex);
+        if (g_queueCount > 0) {
+            std::memcpy(filePath, g_uploadQueue[g_queueHead].filePath,
+                        sizeof(filePath));
+            fileSize = g_uploadQueue[g_queueHead].fileSize;
+            g_queueHead = (g_queueHead + 1) % MAX_QUEUE_SIZE;
+            g_queueCount--;
+            hasTask = true;
+        }
+        mutexUnlock(&g_queueMutex);
+
+        if (!hasTask) {
+            break;  // Queue empty, exit thread
+        }
+
+        // Determine max retries based on file type (image=2, video=3)
+        const int maxRetries = getMaxRetries(filePath);
+        const bool isVideo =
+            (std::strlen(filePath) >= 4 &&
+             std::strcmp(filePath + std::strlen(filePath) - 4, ".mp4") == 0);
+
+        Logger::get().info() << separator << endl
+                             << "Uploading: " << filePath << " (" << fileSize
+                             << " bytes, " << (isVideo ? "video" : "image")
+                             << ", max " << maxRetries << " retries)" << endl;
+
+        bool anySuccess = false;
+
+        // Upload to Telegram with exponential backoff
+        if (telegramEnabled) {
+            bool sent = false;
+            for (int retry = 0; retry < maxRetries && !sent; ++retry) {
+                if (retry > 0) {
+                    Logger::get().info() << "[Telegram] Retry " << retry << "/"
+                                         << maxRetries << endl;
+                    exponentialBackoff(retry - 1);
+                }
+                if (telegramUploadMode == UploadMode::Compressed) {
+                    sent = sendFileToTelegram(filePath, fileSize, true);
+                } else if (telegramUploadMode == UploadMode::Original) {
+                    sent = sendFileToTelegram(filePath, fileSize, false);
+                } else if (telegramUploadMode == UploadMode::Both) {
+                    bool c = sendFileToTelegram(filePath, fileSize, true);
+                    bool o = sendFileToTelegram(filePath, fileSize, false);
+                    sent = c || o;
+                }
+            }
+            if (sent)
+                anySuccess = true;
+            else
+                Logger::get().error() << "[Telegram] Upload failed after "
+                                      << maxRetries << " attempts" << endl;
+        }
+
+        // Upload to ntfy with exponential backoff
+        if (ntfyEnabled) {
+            bool sent = false;
+            for (int retry = 0; retry < maxRetries && !sent; ++retry) {
+                if (retry > 0) {
+                    Logger::get().info() << "[ntfy] Retry " << retry << "/"
+                                         << maxRetries << endl;
+                    exponentialBackoff(retry - 1);
+                }
+                sent = sendFileToNtfy(filePath, fileSize);
+            }
+            if (sent)
+                anySuccess = true;
+            else
+                Logger::get().error() << "[ntfy] Upload failed after "
+                                      << maxRetries << " attempts" << endl;
+        }
+
+        // Upload to Discord with exponential backoff
+        if (discordEnabled) {
+            bool sent = false;
+            for (int retry = 0; retry < maxRetries && !sent; ++retry) {
+                if (retry > 0) {
+                    Logger::get().info() << "[Discord] Retry " << retry << "/"
+                                         << maxRetries << endl;
+                    exponentialBackoff(retry - 1);
+                }
+                sent = sendFileToDiscord(filePath, fileSize);
+            }
+            if (sent)
+                anySuccess = true;
+            else
+                Logger::get().error() << "[Discord] Upload failed after "
+                                      << maxRetries << " attempts" << endl;
+        }
+
+        if (!anySuccess) {
+            Logger::get().error() << "All uploads failed" << endl;
+        }
+    }
+
+    g_threadRunning = false;
+    Logger::get().info() << "[Worker] Exiting" << endl;
+}
+
 int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
     constexpr std::string_view configDir = "sdmc:/config";
     constexpr std::string_view appConfigDir = "sdmc:/config/" APP_TITLE;
@@ -230,19 +374,11 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
         static_cast<u64>(checkInterval) * 1'000'000'000ULL;
     Logger::get().info() << "Check interval: " << checkInterval << " second(s)"
                          << endl;
-    Logger::get().close();
 
-    constexpr std::string_view separator = "=============================";
-    constexpr int maxRetries = 3;
+    // Initialize mutex
+    mutexInit(&g_queueMutex);
 
-    // Helper lambda to retry upload with max attempts
-    const auto retryUpload = [maxRetries]<typename F>(F&& uploadFunc) {
-        for (int retry = 0; retry < maxRetries; ++retry) {
-            if (uploadFunc()) return true;
-        }
-        return false;
-    };
-
+    // Main detection loop (runs forever for sysmodule)
     while (true) {
         auto tmpItemResult = getLastAlbumItem();
 
@@ -262,88 +398,73 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
             const size_t fs = filesize(tmpItem);
 
             if (fs > 0) {
-                auto logger = Logger::get().info();
-                logger << separator << endl
-                       << "New item found: " << tmpItem << endl
-                       << "Filesize: " << fs << endl;
+                bool added = false;
+                size_t queueSize = 0;
 
-                bool anySuccess = false;
-
-                // Upload to enabled destinations in sequence
-                if (Config::get().telegramEnabled()) {
-                    bool sent = false;
-
-                    // Decide upload strategy based on configured mode
-                    if (telegramUploadMode == UploadMode::Compressed) {
-                        sent = retryUpload([&] {
-                            return sendFileToTelegram(tmpItem, fs, true);
-                        });
-                    } else if (telegramUploadMode == UploadMode::Original) {
-                        sent = retryUpload([&] {
-                            return sendFileToTelegram(tmpItem, fs, false);
-                        });
-                    } else if (telegramUploadMode == UploadMode::Both) {
-                        // Send compressed first, then original
-                        const bool compressedSent = retryUpload([&] {
-                            return sendFileToTelegram(tmpItem, fs, true);
-                        });
-                        const bool originalSent = retryUpload([&] {
-                            return sendFileToTelegram(tmpItem, fs, false);
-                        });
-                        sent = compressedSent || originalSent;
-                    }
-
-                    if (!sent) {
-                        Logger::get().error()
-                            << "[Telegram] Unable to send file after "
-                            << maxRetries << " retries" << endl;
-                    } else {
-                        anySuccess = true;
-                    }
+                // Add file to upload queue (circular buffer)
+                mutexLock(&g_queueMutex);
+                if (g_queueCount < MAX_QUEUE_SIZE) {
+                    std::strncpy(g_uploadQueue[g_queueTail].filePath,
+                                 tmpItem.c_str(), 127);
+                    g_uploadQueue[g_queueTail].filePath[127] = '\0';
+                    g_uploadQueue[g_queueTail].fileSize = fs;
+                    g_queueTail = (g_queueTail + 1) % MAX_QUEUE_SIZE;
+                    g_queueCount++;
+                    queueSize = g_queueCount;
+                    added = true;
                 }
+                mutexUnlock(&g_queueMutex);
 
-                // Upload to ntfy (always original, no compression)
-                if (Config::get().ntfyEnabled()) {
-                    const bool sent = retryUpload(
-                        [&] { return sendFileToNtfy(tmpItem, fs); });
-
-                    if (!sent) {
-                        Logger::get().error()
-                            << "[ntfy] Unable to send file after " << maxRetries
-                            << " retries" << endl;
-                    } else {
-                        anySuccess = true;
-                    }
-                }
-
-                // Upload to Discord (always original, no compression)
-                if (Config::get().discordEnabled()) {
-                    const bool sent = retryUpload(
-                        [&] { return sendFileToDiscord(tmpItem, fs); });
-
-                    if (!sent) {
-                        Logger::get().error()
-                            << "[Discord] Unable to send file after "
-                            << maxRetries << " retries" << endl;
-                    } else {
-                        anySuccess = true;
-                    }
-                }
-
-                if (!anySuccess) {
-                    Logger::get().error()
-                        << "All upload destinations failed, skipping..."
+                if (added) {
+                    Logger::get().info()
+                        << "New: " << tmpItem << " (queue: " << queueSize << ")"
                         << endl;
+                } else {
+                    Logger::get().error()
+                        << "Queue full, skipping: " << tmpItem << endl;
                 }
 
-                // Update lastItemResult regardless of success to avoid
-                // retrying the same file forever
+                // Start upload thread only if not already running and queue has
+                // items
+                if (!g_threadRunning && queueSize > 0) {
+                    // Wait for previous thread to fully exit if needed
+                    if (g_threadCreated) {
+                        threadWaitForExit(&g_uploadThread);
+                        threadClose(&g_uploadThread);
+                        g_threadCreated = false;
+                    }
+
+                    // Create thread with minimal stack (16KB)
+                    Result rc2 =
+                        threadCreate(&g_uploadThread, uploadWorkerThread,
+                                     nullptr, nullptr, 0x4000, 0x2C, -2);
+                    if (R_FAILED(rc2)) {
+                        Logger::get().error()
+                            << "Thread create failed: " << rc2 << endl;
+                    } else {
+                        rc2 = threadStart(&g_uploadThread);
+                        if (R_FAILED(rc2)) {
+                            Logger::get().error()
+                                << "Thread start failed: " << rc2 << endl;
+                            threadClose(&g_uploadThread);
+                        } else {
+                            g_threadCreated = true;
+                            g_threadRunning = true;
+                        }
+                    }
+                }
+
+                // Update lastItemResult to avoid re-detecting the same file
                 lastItemResult = tmpItem;
             }
-
-            Logger::get().close();
         }
 
         svcSleepThread(sleepDuration);
+    }
+
+    // Cleanup: wait for upload thread if still running
+    if (g_threadCreated) {
+        threadWaitForExit(&g_uploadThread);
+        threadClose(&g_uploadThread);
     }
 }

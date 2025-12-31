@@ -14,7 +14,6 @@ namespace {
 
 constexpr size_t NX_CURL_BUFFERSIZE = 0x2000L;         // 8KB
 constexpr size_t NX_CURL_UPLOAD_BUFFERSIZE = 0x2000L;  // 8KB
-constexpr long NX_CURL_TIMEOUT = 30L;                 // 30 seconds timeout
 
 struct UploadInfo {
     FILE* f;
@@ -88,6 +87,26 @@ ValidationResult validateUploadFile(std::string_view path,
     }
 
     return ValidationResult::Success;
+}
+
+// Helper to configure CURL timeouts based on file type
+inline void setCurlTimeouts(CURL* curl, bool isVideo) {
+    if (isVideo) {
+        curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT,
+                         VideoTimeouts::connectTimeout);
+        curl_easy_setopt(curl, CURLOPT_LOW_SPEED_TIME,
+                         VideoTimeouts::idleTimeout);
+        curl_easy_setopt(curl, CURLOPT_LOW_SPEED_LIMIT,
+                         1L);  // At least 1 byte/sec
+        curl_easy_setopt(curl, CURLOPT_TIMEOUT, VideoTimeouts::totalTimeout);
+    } else {
+        curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT,
+                         ImageTimeouts::connectTimeout);
+        curl_easy_setopt(curl, CURLOPT_LOW_SPEED_TIME,
+                         ImageTimeouts::idleTimeout);
+        curl_easy_setopt(curl, CURLOPT_LOW_SPEED_LIMIT, 1L);
+        curl_easy_setopt(curl, CURLOPT_TIMEOUT, ImageTimeouts::totalTimeout);
+    }
 }
 
 }  // namespace
@@ -168,7 +187,7 @@ bool sendFileToTelegram(std::string_view path, size_t size, bool compression) {
     curl_easy_setopt(curl, CURLOPT_BUFFERSIZE, NX_CURL_BUFFERSIZE);
     curl_easy_setopt(curl, CURLOPT_UPLOAD_BUFFERSIZE,
                      NX_CURL_UPLOAD_BUFFERSIZE);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, NX_CURL_TIMEOUT);
+    setCurlTimeouts(curl, isMovie);
 
     const CURLcode res = curl_easy_perform(curl);
     std::fclose(f);
@@ -294,7 +313,7 @@ bool sendFileToNtfy(std::string_view path, size_t size) {
     curl_easy_setopt(curl, CURLOPT_BUFFERSIZE, NX_CURL_BUFFERSIZE);
     curl_easy_setopt(curl, CURLOPT_UPLOAD_BUFFERSIZE,
                      NX_CURL_UPLOAD_BUFFERSIZE);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, NX_CURL_TIMEOUT);
+    setCurlTimeouts(curl, isMovie);
 
     const CURLcode res = curl_easy_perform(curl);
     std::fclose(f);
@@ -405,7 +424,7 @@ bool sendFileToDiscord(std::string_view path, size_t size) {
     curl_easy_setopt(curl, CURLOPT_BUFFERSIZE, NX_CURL_BUFFERSIZE);
     curl_easy_setopt(curl, CURLOPT_UPLOAD_BUFFERSIZE,
                      NX_CURL_UPLOAD_BUFFERSIZE);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, NX_CURL_TIMEOUT);
+    setCurlTimeouts(curl, isMovie);
 
     const CURLcode res = curl_easy_perform(curl);
     std::fclose(f);
