@@ -148,10 +148,15 @@ void initLogger(bool truncate) {
     logger << separator << endl;
 }
 
+// Exponential backoff delay helper (1s, 2s, 4s...)
+inline void exponentialBackoff(int retryCount) {
+    const u64 delayMs = (1ULL << retryCount) * 1000ULL;
+    svcSleepThread(delayMs * 1'000'000ULL);
+}
+
 // Upload worker thread function
 void uploadWorkerThread(void* arg) {
     constexpr std::string_view separator = "=============================";
-    constexpr int maxRetries = 3;
 
     Logger::get().info() << "[Worker] Started" << endl;
 
@@ -184,16 +189,28 @@ void uploadWorkerThread(void* arg) {
             break;  // Queue empty, exit thread
         }
 
+        // Determine max retries based on file type (image=2, video=3)
+        const int maxRetries = getMaxRetries(filePath);
+        const bool isVideo =
+            (std::strlen(filePath) >= 4 &&
+             std::strcmp(filePath + std::strlen(filePath) - 4, ".mp4") == 0);
+
         Logger::get().info() << separator << endl
                              << "Uploading: " << filePath << " (" << fileSize
-                             << " bytes)" << endl;
+                             << " bytes, " << (isVideo ? "video" : "image")
+                             << ", max " << maxRetries << " retries)" << endl;
 
         bool anySuccess = false;
 
-        // Upload to Telegram
+        // Upload to Telegram with exponential backoff
         if (telegramEnabled) {
             bool sent = false;
             for (int retry = 0; retry < maxRetries && !sent; ++retry) {
+                if (retry > 0) {
+                    Logger::get().info() << "[Telegram] Retry " << retry << "/"
+                                         << maxRetries << endl;
+                    exponentialBackoff(retry - 1);
+                }
                 if (telegramUploadMode == UploadMode::Compressed) {
                     sent = sendFileToTelegram(filePath, fileSize, true);
                 } else if (telegramUploadMode == UploadMode::Original) {
@@ -207,31 +224,44 @@ void uploadWorkerThread(void* arg) {
             if (sent)
                 anySuccess = true;
             else
-                Logger::get().error() << "[Telegram] Upload failed" << endl;
+                Logger::get().error() << "[Telegram] Upload failed after "
+                                      << maxRetries << " attempts" << endl;
         }
 
-        // Upload to ntfy
+        // Upload to ntfy with exponential backoff
         if (ntfyEnabled) {
             bool sent = false;
             for (int retry = 0; retry < maxRetries && !sent; ++retry) {
+                if (retry > 0) {
+                    Logger::get().info() << "[ntfy] Retry " << retry << "/"
+                                         << maxRetries << endl;
+                    exponentialBackoff(retry - 1);
+                }
                 sent = sendFileToNtfy(filePath, fileSize);
             }
             if (sent)
                 anySuccess = true;
             else
-                Logger::get().error() << "[ntfy] Upload failed" << endl;
+                Logger::get().error() << "[ntfy] Upload failed after "
+                                      << maxRetries << " attempts" << endl;
         }
 
-        // Upload to Discord
+        // Upload to Discord with exponential backoff
         if (discordEnabled) {
             bool sent = false;
             for (int retry = 0; retry < maxRetries && !sent; ++retry) {
+                if (retry > 0) {
+                    Logger::get().info() << "[Discord] Retry " << retry << "/"
+                                         << maxRetries << endl;
+                    exponentialBackoff(retry - 1);
+                }
                 sent = sendFileToDiscord(filePath, fileSize);
             }
             if (sent)
                 anySuccess = true;
             else
-                Logger::get().error() << "[Discord] Upload failed" << endl;
+                Logger::get().error() << "[Discord] Upload failed after "
+                                      << maxRetries << " attempts" << endl;
         }
 
         if (!anySuccess) {
