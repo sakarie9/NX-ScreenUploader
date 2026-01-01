@@ -22,7 +22,8 @@ constexpr bool isDigitsOnly(std::string_view str) noexcept {
                                [](char c) { return c >= '0' && c <= '9'; });
 }
 
-// Use template parameter to avoid lambda overhead, directly compare filename strings
+// Use template parameter to avoid lambda overhead, directly compare filename
+// strings
 template <size_t ExpectedLen>
 [[nodiscard]] fs::path findMaxDir(const fs::path& dir) noexcept {
     fs::path max_path;
@@ -97,8 +98,8 @@ std::expected<std::string, std::string> getLastAlbumItem() {
     const auto endTime = std::chrono::high_resolution_clock::now();
     const auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(
         endTime - startTime);
-    Logger::get().info() << "[getLastAlbumItem] Success " << " ("
-                         << duration.count() << "ns)" << endl;
+    Logger::get().debug() << "[getLastAlbumItem] Success " << " ("
+                          << duration.count() << "ns)" << endl;
     Logger::get().close();
 #endif
 

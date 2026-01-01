@@ -32,6 +32,17 @@ size_t uploadReadFunction(void* ptr, size_t size, size_t nmemb,
     const size_t bytesToRead = std::min(ui->sizeLeft, maxBytes);
     const size_t bytesRead = std::fread(ptr, 1, bytesToRead, ui->f);
     ui->sizeLeft -= bytesRead;
+
+    // Log progress every 100KB or at completion
+    static size_t lastLoggedProgress = 0;
+    const size_t currentProgress = ui->sizeLeft;
+    if (currentProgress == 0 ||
+        (lastLoggedProgress - currentProgress) >= 102400) {
+        Logger::get().debug() << "[Upload] Progress: " << currentProgress
+                              << " bytes remaining" << endl;
+        lastLoggedProgress = currentProgress;
+    }
+
     return bytesRead;
 }
 
@@ -116,6 +127,12 @@ bool sendFileToTelegram(std::string_view path, size_t size, bool compression) {
     std::string_view tid;
     bool isMovie;
 
+    Logger::get().info() << logPrefix << "Starting upload - File: " << path
+                         << ", Size: " << size << " bytes ("
+                         << (size / 1024.0 / 1024.0) << " MB)"
+                         << ", Compression: "
+                         << (compression ? "enabled" : "disabled") << endl;
+
     // Validate file and check if upload is needed
     const auto validationResult =
         validateUploadFile(path, logPrefix, tid, isMovie,
@@ -140,7 +157,8 @@ bool sendFileToTelegram(std::string_view path, size_t size, bool compression) {
 
     FILE* f = std::fopen(filePath.c_str(), "rb");
     if (f == nullptr) {
-        Logger::get().error() << logPrefix << "fopen() failed" << endl;
+        Logger::get().error()
+            << logPrefix << "fopen() failed for file: " << path << endl;
         return false;
     }
 
@@ -189,6 +207,20 @@ bool sendFileToTelegram(std::string_view path, size_t size, bool compression) {
                      NX_CURL_UPLOAD_BUFFERSIZE);
     setCurlTimeouts(curl, isMovie);
 
+    Logger::get().debug() << logPrefix << "CURL config - File type: "
+                          << (isMovie ? "video" : "image")
+                          << ", Connect timeout: "
+                          << (isMovie ? VideoTimeouts::connectTimeout
+                                      : ImageTimeouts::connectTimeout)
+                          << "s, Idle timeout: "
+                          << (isMovie ? VideoTimeouts::idleTimeout
+                                      : ImageTimeouts::idleTimeout)
+                          << "s, Total timeout: "
+                          << (isMovie ? VideoTimeouts::totalTimeout
+                                      : ImageTimeouts::totalTimeout)
+                          << "s" << endl;
+    Logger::get().info() << logPrefix << "Starting CURL transfer..." << endl;
+
     const CURLcode res = curl_easy_perform(curl);
     std::fclose(f);
 
@@ -212,12 +244,16 @@ bool sendFileToTelegram(std::string_view path, size_t size, bool compression) {
         }
 
         Logger::get().error()
-            << logPrefix << "Error uploading, got response code "
-            << responseCode << endl;
+            << logPrefix << "HTTP error - Response code: " << responseCode
+            << ", File: " << path << ", Size: " << size << " bytes" << endl;
         return false;
     } else {
-        Logger::get().error() << logPrefix << "curl_easy_perform() failed: "
-                              << curl_easy_strerror(res) << endl;
+        double requestSize = 0;
+        curl_easy_getinfo(curl, CURLINFO_SIZE_UPLOAD, &requestSize);
+        Logger::get().error()
+            << logPrefix << "CURL error: " << curl_easy_strerror(res)
+            << " (code: " << res << ")"
+            << ", Bytes sent: " << requestSize << ", File: " << path << endl;
         curl_easy_cleanup(curl);
         curl_formfree(formpost);
         return false;
@@ -228,6 +264,10 @@ bool sendFileToNtfy(std::string_view path, size_t size) {
     constexpr std::string_view logPrefix = "[ntfy] ";
     std::string_view tid;
     bool isMovie;
+
+    Logger::get().info() << logPrefix << "Starting upload - File: " << path
+                         << ", Size: " << size << " bytes ("
+                         << (size / 1024.0 / 1024.0) << " MB)" << endl;
 
     // Validate file and check if upload is needed
     const auto validationResult = validateUploadFile(
@@ -245,7 +285,8 @@ bool sendFileToNtfy(std::string_view path, size_t size) {
 
     FILE* f = std::fopen(filePath.c_str(), "rb");
     if (f == nullptr) {
-        Logger::get().error() << logPrefix << "fopen() failed" << endl;
+        Logger::get().error()
+            << logPrefix << "fopen() failed for file: " << path << endl;
         return false;
     }
 
@@ -315,18 +356,39 @@ bool sendFileToNtfy(std::string_view path, size_t size) {
                      NX_CURL_UPLOAD_BUFFERSIZE);
     setCurlTimeouts(curl, isMovie);
 
+    Logger::get().debug() << logPrefix << "CURL config - File type: "
+                          << (isMovie ? "video" : "image")
+                          << ", Connect timeout: "
+                          << (isMovie ? VideoTimeouts::connectTimeout
+                                      : ImageTimeouts::connectTimeout)
+                          << "s, Idle timeout: "
+                          << (isMovie ? VideoTimeouts::idleTimeout
+                                      : ImageTimeouts::idleTimeout)
+                          << "s, Total timeout: "
+                          << (isMovie ? VideoTimeouts::totalTimeout
+                                      : ImageTimeouts::totalTimeout)
+                          << "s" << endl;
+    Logger::get().info() << logPrefix << "Starting CURL transfer..." << endl;
+
     const CURLcode res = curl_easy_perform(curl);
     std::fclose(f);
 
     if (res == CURLE_OK) {
         long responseCode;
         double requestSize;
+        double totalTime;
+        double uploadSpeed;
         curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &responseCode);
         curl_easy_getinfo(curl, CURLINFO_SIZE_UPLOAD, &requestSize);
+        curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME, &totalTime);
+        curl_easy_getinfo(curl, CURLINFO_SPEED_UPLOAD, &uploadSpeed);
 
-        Logger::get().debug()
-            << logPrefix << requestSize
-            << " bytes sent, response code: " << responseCode << endl;
+        Logger::get().info()
+            << logPrefix << "Transfer complete - " << requestSize
+            << " bytes sent (" << (requestSize / 1024.0 / 1024.0) << " MB), "
+            << "Response code: " << responseCode << ", "
+            << "Time: " << totalTime << "s, "
+            << "Speed: " << (uploadSpeed / 1024.0) << " KB/s" << endl;
 
         curl_slist_free_all(headers);
         curl_easy_cleanup(curl);
@@ -338,12 +400,16 @@ bool sendFileToNtfy(std::string_view path, size_t size) {
         }
 
         Logger::get().error()
-            << logPrefix << "Error uploading, got response code "
-            << responseCode << endl;
+            << logPrefix << "HTTP error - Response code: " << responseCode
+            << ", File: " << path << ", Size: " << size << " bytes" << endl;
         return false;
     } else {
-        Logger::get().error() << logPrefix << "curl_easy_perform() failed: "
-                              << curl_easy_strerror(res) << endl;
+        double requestSize = 0;
+        curl_easy_getinfo(curl, CURLINFO_SIZE_UPLOAD, &requestSize);
+        Logger::get().error()
+            << logPrefix << "CURL error: " << curl_easy_strerror(res)
+            << " (code: " << res << ")"
+            << ", Bytes sent: " << requestSize << ", File: " << path << endl;
         curl_slist_free_all(headers);
         curl_easy_cleanup(curl);
         return false;
@@ -354,6 +420,10 @@ bool sendFileToDiscord(std::string_view path, size_t size) {
     constexpr std::string_view logPrefix = "[Discord] ";
     std::string_view tid;
     bool isMovie;
+
+    Logger::get().info() << logPrefix << "Starting upload - File: " << path
+                         << ", Size: " << size << " bytes ("
+                         << (size / 1024.0 / 1024.0) << " MB)" << endl;
 
     // Validate file and check if upload is needed
     const auto validationResult = validateUploadFile(
@@ -371,7 +441,8 @@ bool sendFileToDiscord(std::string_view path, size_t size) {
 
     FILE* f = std::fopen(filePath.c_str(), "rb");
     if (f == nullptr) {
-        Logger::get().error() << logPrefix << "fopen() failed" << endl;
+        Logger::get().error()
+            << logPrefix << "fopen() failed for file: " << path << endl;
         return false;
     }
 
@@ -426,18 +497,39 @@ bool sendFileToDiscord(std::string_view path, size_t size) {
                      NX_CURL_UPLOAD_BUFFERSIZE);
     setCurlTimeouts(curl, isMovie);
 
+    Logger::get().debug() << logPrefix << "CURL config - File type: "
+                          << (isMovie ? "video" : "image")
+                          << ", Connect timeout: "
+                          << (isMovie ? VideoTimeouts::connectTimeout
+                                      : ImageTimeouts::connectTimeout)
+                          << "s, Idle timeout: "
+                          << (isMovie ? VideoTimeouts::idleTimeout
+                                      : ImageTimeouts::idleTimeout)
+                          << "s, Total timeout: "
+                          << (isMovie ? VideoTimeouts::totalTimeout
+                                      : ImageTimeouts::totalTimeout)
+                          << "s" << endl;
+    Logger::get().info() << logPrefix << "Starting CURL transfer..." << endl;
+
     const CURLcode res = curl_easy_perform(curl);
     std::fclose(f);
 
     if (res == CURLE_OK) {
         long responseCode;
         double requestSize;
+        double totalTime;
+        double uploadSpeed;
         curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &responseCode);
         curl_easy_getinfo(curl, CURLINFO_SIZE_UPLOAD, &requestSize);
+        curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME, &totalTime);
+        curl_easy_getinfo(curl, CURLINFO_SPEED_UPLOAD, &uploadSpeed);
 
-        Logger::get().debug()
-            << logPrefix << requestSize
-            << " bytes sent, response code: " << responseCode << endl;
+        Logger::get().info()
+            << logPrefix << "Transfer complete - " << requestSize
+            << " bytes sent (" << (requestSize / 1024.0 / 1024.0) << " MB), "
+            << "Response code: " << responseCode << ", "
+            << "Time: " << totalTime << "s, "
+            << "Speed: " << (uploadSpeed / 1024.0) << " KB/s" << endl;
 
         curl_easy_cleanup(curl);
         curl_formfree(formpost);
@@ -450,12 +542,16 @@ bool sendFileToDiscord(std::string_view path, size_t size) {
         }
 
         Logger::get().error()
-            << logPrefix << "Error uploading, got response code "
-            << responseCode << endl;
+            << logPrefix << "HTTP error - Response code: " << responseCode
+            << ", File: " << path << ", Size: " << size << " bytes" << endl;
         return false;
     } else {
-        Logger::get().error() << logPrefix << "curl_easy_perform() failed: "
-                              << curl_easy_strerror(res) << endl;
+        double requestSize = 0;
+        curl_easy_getinfo(curl, CURLINFO_SIZE_UPLOAD, &requestSize);
+        Logger::get().error()
+            << logPrefix << "CURL error: " << curl_easy_strerror(res)
+            << " (code: " << res << ")"
+            << ", Bytes sent: " << requestSize << ", File: " << path << endl;
         curl_easy_cleanup(curl);
         curl_formfree(formpost);
         curl_slist_free_all(headers);

@@ -156,8 +156,6 @@ inline void exponentialBackoff(int retryCount) {
 
 // Upload worker thread function
 void uploadWorkerThread(void* arg) {
-    constexpr std::string_view separator = "=============================";
-
     Logger::get().info() << "[Worker] Started" << endl;
 
     // Get config values once
@@ -195,10 +193,10 @@ void uploadWorkerThread(void* arg) {
             (std::strlen(filePath) >= 4 &&
              std::strcmp(filePath + std::strlen(filePath) - 4, ".mp4") == 0);
 
-        Logger::get().info() << separator << endl
-                             << "Uploading: " << filePath << " (" << fileSize
-                             << " bytes, " << (isVideo ? "video" : "image")
-                             << ", max " << maxRetries << " retries)" << endl;
+        Logger::get().info()
+            << "[Worker] Uploading: " << filePath << " (" << fileSize
+            << " bytes, " << (isVideo ? "video" : "image") << ", max "
+            << maxRetries << " retries)" << endl;
 
         bool anySuccess = false;
 

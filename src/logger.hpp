@@ -26,6 +26,9 @@ inline constexpr EndLine endl{};
 inline constexpr std::string_view LOGFILE_PATH =
     "sdmc:/config/" APP_TITLE "/logs.txt";
 
+// Forward declaration
+class Logger;
+
 // Lightweight string builder for log messages
 class LogMessage {
    public:
@@ -46,11 +49,21 @@ class LogMessage {
     LogMessage& operator=(LogMessage&&) = delete;
 
     ~LogMessage() {
-        // Flush only, newline is now handled by std::endl
+        // Close file after each message to allow other processes to access it
         if (m_file) {
             std::fflush(m_file);
+            std::fclose(m_file);
+            // Reset Logger's file pointer so it reopens next time
+            // Note: We'll set m_file to nullptr through a helper
+            clearLoggerFile();
         }
     }
+
+    // Helper to access Logger's private m_file (will be friend)
+    void clearLoggerFile() const;
+
+    friend class Logger;  // Allow Logger to access our private members if
+                          // needed
 
     LogMessage& operator<<(const char* str) {
         if (m_file && str) std::fputs(str, m_file);
@@ -96,6 +109,7 @@ class LogMessage {
         if (m_file) {
             std::fputc('\n', m_file);
             std::fflush(m_file);
+            // File will be closed in destructor
         }
         return *this;
     }
@@ -106,6 +120,8 @@ class LogMessage {
 
 class Logger {
    public:
+    friend class LogMessage;  // Allow LogMessage to access m_file
+
     static Logger& get() noexcept {
         static Logger instance;
         return instance;
@@ -180,10 +196,10 @@ class Logger {
     void open() {
         if (!m_file) {
             m_file = std::fopen(LOGFILE_PATH.data(), "a");
-            // Set smaller buffer to reduce memory usage
+            // Use unbuffered mode for real-time log viewing
             if (m_file) {
-                std::setvbuf(m_file, nullptr, _IOLBF,
-                             512);  // 512 bytes line buffer
+                std::setvbuf(m_file, nullptr, _IONBF,
+                             0);  // No buffering - logs visible immediately
             }
         }
     }
@@ -219,4 +235,10 @@ class Logger {
 
     FILE* m_file = nullptr;
     LogLevel m_level{LogLevel::INFO};
+};
+
+// Implementation of LogMessage::clearLoggerFile()
+// This allows LogMessage to reset Logger's m_file after closing
+inline void LogMessage::clearLoggerFile() const {
+    Logger::get().m_file = nullptr;
 };
