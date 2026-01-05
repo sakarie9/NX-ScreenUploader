@@ -5,6 +5,7 @@
 #include <cstring>
 #include <string_view>
 
+#include "album.hpp"
 #include "config.hpp"
 #include "logger.hpp"
 #include "project.h"
@@ -378,22 +379,23 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
 
     // Main detection loop (runs forever for sysmodule)
     while (true) {
-        auto tmpItemResult = getLastAlbumItem();
+        // Get the last known item path for comparison
+        std::string_view lastItemPath =
+            lastItemResult.has_value() ? lastItemResult.value() : "";
 
-        // Skip if tmpItem is an error (album not ready)
-        if (!tmpItemResult.has_value()) {
+        auto newItemsResult = getNewAlbumItems(lastItemPath);
+
+        // Skip if error (album not ready)
+        if (!newItemsResult.has_value()) {
             svcSleepThread(sleepDuration);
             continue;
         }
 
-        const std::string& tmpItem = tmpItemResult.value();
+        const auto& newItems = newItemsResult.value();
 
-        // If lastItem was an error, or tmpItem is newer, process it
-        const bool shouldProcess =
-            !lastItemResult.has_value() || lastItemResult.value() < tmpItem;
-
-        if (shouldProcess) {
-            const size_t fs = filesize(tmpItem);
+        // Process all new items
+        for (const auto& item : newItems) {
+            const size_t fs = filesize(item);
 
             if (fs > 0) {
                 bool added = false;
@@ -403,7 +405,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
                 mutexLock(&g_queueMutex);
                 if (g_queueCount < MAX_QUEUE_SIZE) {
                     std::strncpy(g_uploadQueue[g_queueTail].filePath,
-                                 tmpItem.c_str(), 127);
+                                 item.c_str(), 127);
                     g_uploadQueue[g_queueTail].filePath[127] = '\0';
                     g_uploadQueue[g_queueTail].fileSize = fs;
                     g_queueTail = (g_queueTail + 1) % MAX_QUEUE_SIZE;
@@ -415,12 +417,15 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
 
                 if (added) {
                     Logger::get().info()
-                        << "New: " << tmpItem << " (queue: " << queueSize << ")"
+                        << "New: " << item << " (queue: " << queueSize << ")"
                         << endl;
                 } else {
                     Logger::get().error()
-                        << "Queue full, skipping: " << tmpItem << endl;
+                        << "Queue full, skipping: " << item << endl;
                 }
+
+                // Update lastItemResult to track the newest processed item
+                lastItemResult = item;
 
                 // Start upload thread only if not already running and queue has
                 // items
@@ -451,9 +456,6 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
                         }
                     }
                 }
-
-                // Update lastItemResult to avoid re-detecting the same file
-                lastItemResult = tmpItem;
             }
         }
 

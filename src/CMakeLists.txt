@@ -16,6 +16,7 @@ endif ()
 
 add_executable(${HOMEBREW_APP}.elf
         ${SOURCE_DIR}/main.cpp
+        ${SOURCE_DIR}/album.cpp
         ${SOURCE_DIR}/upload.cpp
         ${SOURCE_DIR}/utils.cpp
         ${SOURCE_DIR}/config.cpp)
