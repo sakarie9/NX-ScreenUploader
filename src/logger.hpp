@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <mutex>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -32,14 +33,20 @@ class Logger;
 // Lightweight string builder for log messages
 class LogMessage {
    public:
-    LogMessage(FILE* file, const char* prefix) : m_file(file) {
+    LogMessage(FILE* file, const char* prefix,
+               std::unique_lock<std::mutex>&& lock)
+        : m_file(file), m_lock(std::move(lock)) {
         if (m_file && prefix) {
             std::fputs(prefix, m_file);
         }
     }
 
+    // Default constructor for disabled logs
+    LogMessage() : m_file(nullptr), m_lock() {}
+
     // Move constructor
-    LogMessage(LogMessage&& other) noexcept : m_file(other.m_file) {
+    LogMessage(LogMessage&& other) noexcept
+        : m_file(other.m_file), m_lock(std::move(other.m_lock)) {
         other.m_file = nullptr;
     }
 
@@ -49,18 +56,14 @@ class LogMessage {
     LogMessage& operator=(LogMessage&&) = delete;
 
     ~LogMessage() {
-        // Close file after each message to allow other processes to access it
+        // Close file after each message and release lock
         if (m_file) {
             std::fflush(m_file);
             std::fclose(m_file);
-            // Reset Logger's file pointer so it reopens next time
-            // Note: We'll set m_file to nullptr through a helper
-            clearLoggerFile();
+            m_file = nullptr;
         }
+        // Lock automatically released when m_lock goes out of scope
     }
-
-    // Helper to access Logger's private m_file (will be friend)
-    void clearLoggerFile() const;
 
     friend class Logger;  // Allow Logger to access our private members if
                           // needed
@@ -116,12 +119,11 @@ class LogMessage {
 
    private:
     FILE* m_file;
+    std::unique_lock<std::mutex> m_lock;
 };
 
 class Logger {
    public:
-    friend class LogMessage;  // Allow LogMessage to access m_file
-
     static Logger& get() noexcept {
         static Logger instance;
         return instance;
@@ -130,6 +132,7 @@ class Logger {
     ~Logger() { close(); }
 
     void truncate() {
+        std::unique_lock<std::mutex> lock(m_mutex);
         close();
         FILE* f = std::fopen(LOGFILE_PATH.data(), "w");
         if (f) std::fclose(f);
@@ -150,48 +153,62 @@ class Logger {
 
     LogMessage debug() {
         if (isEnabled(LogLevel::DEBUG)) {
+            auto lock = acquireLock();
             open();
-            return LogMessage(m_file, getPrefix(LogLevel::DEBUG));
+            return LogMessage(m_file, getPrefix(LogLevel::DEBUG),
+                              std::move(lock));
         }
-        return LogMessage(nullptr, nullptr);
+        return LogMessage();
     }
 
     LogMessage info() {
         if (isEnabled(LogLevel::INFO)) {
+            auto lock = acquireLock();
             open();
-            return LogMessage(m_file, getPrefix(LogLevel::INFO));
+            return LogMessage(m_file, getPrefix(LogLevel::INFO),
+                              std::move(lock));
         }
-        return LogMessage(nullptr, nullptr);
+        return LogMessage();
     }
 
     LogMessage warn() {
         if (isEnabled(LogLevel::WARN)) {
+            auto lock = acquireLock();
             open();
-            return LogMessage(m_file, getPrefix(LogLevel::WARN));
+            return LogMessage(m_file, getPrefix(LogLevel::WARN),
+                              std::move(lock));
         }
-        return LogMessage(nullptr, nullptr);
+        return LogMessage();
     }
 
     LogMessage error() {
         if (isEnabled(LogLevel::ERROR)) {
+            auto lock = acquireLock();
             open();
-            return LogMessage(m_file, getPrefix(LogLevel::ERROR));
+            return LogMessage(m_file, getPrefix(LogLevel::ERROR),
+                              std::move(lock));
         }
-        return LogMessage(nullptr, nullptr);
+        return LogMessage();
     }
 
     LogMessage none() {
         if (isEnabled(LogLevel::NONE)) {
+            auto lock = acquireLock();
             open();
-            return LogMessage(m_file, getPrefix(LogLevel::NONE));
+            return LogMessage(m_file, getPrefix(LogLevel::NONE),
+                              std::move(lock));
         }
-        return LogMessage(nullptr, nullptr);
+        return LogMessage();
     }
 
    private:
     Logger() = default;
     Logger(const Logger&) = delete;
     Logger& operator=(const Logger&) = delete;
+
+    std::unique_lock<std::mutex> acquireLock() {
+        return std::unique_lock<std::mutex>(m_mutex);
+    }
 
     void open() {
         if (!m_file) {
@@ -235,10 +252,7 @@ class Logger {
 
     FILE* m_file = nullptr;
     LogLevel m_level{LogLevel::INFO};
+    std::mutex m_mutex;
 };
 
-// Implementation of LogMessage::clearLoggerFile()
-// This allows LogMessage to reset Logger's m_file after closing
-inline void LogMessage::clearLoggerFile() const {
-    Logger::get().m_file = nullptr;
-};
+// Implementation of unused clearLoggerFile() removed as it's no longer needed
