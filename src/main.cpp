@@ -419,13 +419,16 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
                     Logger::get().info()
                         << "New: " << item << " (queue: " << queueSize << ")"
                         << endl;
+
+                    // Update lastItemResult only after successful queue
+                    // addition
+                    lastItemResult = item;
                 } else {
                     Logger::get().error()
                         << "Queue full, skipping: " << item << endl;
+                    // Do not update lastItemResult - we'll retry this item on
+                    // next iteration
                 }
-
-                // Update lastItemResult to track the newest processed item
-                lastItemResult = item;
 
                 // Start upload thread only if not already running and queue has
                 // items
