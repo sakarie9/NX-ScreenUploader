@@ -67,8 +67,8 @@ template <size_t ExpectedLen>
     return max_path;
 }
 
-// Collect all files in a directory that are newer than lastFilename
-void collectFilesNewerThan(const fs::path& dir, std::string_view lastFilename,
+// Collect all files in a directory that are newer than lastPath
+void collectFilesNewerThan(const fs::path& dir, std::string_view lastPath,
                            std::vector<std::string>& result) noexcept {
     for (const auto& entry : fs::directory_iterator(dir)) {
         if (!entry.is_regular_file()) continue;
@@ -77,15 +77,15 @@ void collectFilesNewerThan(const fs::path& dir, std::string_view lastFilename,
         auto fullPath = p.string();
 
         // Compare full path strings - files are sorted by path
-        if (fullPath > lastFilename) {
+        if (fullPath > lastPath) {
             result.push_back(std::move(fullPath));
         }
     }
 }
 
-// Find all directories in dir with expected length that are >= minDirname
+// Find all directories in dir with expected length that are >= minDirName
 template <size_t ExpectedLen>
-void findDirsGreaterOrEqual(const fs::path& dir, std::string_view minDirname,
+void findDirsGreaterOrEqual(const fs::path& dir, std::string_view minDirName,
                             std::vector<fs::path>& result) noexcept {
     for (const auto& entry : fs::directory_iterator(dir)) {
         if (!entry.is_directory()) continue;
@@ -96,7 +96,7 @@ void findDirsGreaterOrEqual(const fs::path& dir, std::string_view minDirname,
         if (filename.length() != ExpectedLen || !isDigitsOnly(filename))
             continue;
 
-        if (filename >= minDirname) {
+        if (filename >= minDirName) {
             result.push_back(p);
         }
     }
