@@ -126,7 +126,17 @@ void initLogger(bool truncate) {
         Logger::get().truncate();
     }
 
-    // Logger::get().setLevel(LogLevel::DEBUG);
+    // Set log level from configuration
+    std::string_view logLevelStr = Config::get().getLogLevel();
+    if (logLevelStr == "debug") {
+        Logger::get().setLevel(LogLevel::DEBUG);
+    } else if (logLevelStr == "info") {
+        Logger::get().setLevel(LogLevel::INFO);
+    } else if (logLevelStr == "warn") {
+        Logger::get().setLevel(LogLevel::WARN);
+    } else if (logLevelStr == "error") {
+        Logger::get().setLevel(LogLevel::ERROR);
+    }
 
     constexpr std::string_view separator = "=============================";
     auto logger = Logger::get().none();

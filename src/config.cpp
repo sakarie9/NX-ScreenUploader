@@ -104,6 +104,20 @@ bool Config::refresh() {
     // Read general settings
     m_keepLogs =
         ini_get_bool("general", "keep_logs", ConfigDefaults::KEEP_LOGS);
+    m_logLevel =
+        ini_get_string("general", "log_level", ConfigDefaults::LOG_LEVEL);
+
+    // Validate log level
+    // Valid values: debug, info, warn, error
+    if (m_logLevel != "debug" && m_logLevel != "info" && m_logLevel != "warn" &&
+        m_logLevel != "error") {
+        Logger::get().warn()
+            << "Invalid log_level: '" << m_logLevel
+            << "' (valid levels: debug, info, warn, error). Resetting to "
+               "default (info)."
+            << endl;
+        m_logLevel = ConfigDefaults::LOG_LEVEL;
+    }
 
     // Read check interval (seconds), with minimum enforcement using std::max
     m_checkIntervalSeconds = std::max(

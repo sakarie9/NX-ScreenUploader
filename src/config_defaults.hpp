@@ -24,6 +24,7 @@ namespace ConfigDefaults {
 constexpr int CHECK_INTERVAL_SECONDS = 5;
 constexpr int CHECK_INTERVAL_MINIMUM = 1;
 constexpr bool KEEP_LOGS = false;
+constexpr std::string_view LOG_LEVEL = "info";  // debug, info, warn, error
 
 // ============================================================================
 // Upload destination toggles

@@ -21,6 +21,9 @@ class Config {
     [[nodiscard]] constexpr bool keepLogs() const noexcept {
         return m_keepLogs;
     }
+    [[nodiscard]] std::string_view getLogLevel() const noexcept {
+        return m_logLevel;
+    }
 
     // Upload destination toggles
     [[nodiscard]] constexpr bool telegramEnabled() const noexcept {
@@ -77,6 +80,11 @@ class Config {
     Config(const Config&) = delete;
     Config& operator=(const Config&) = delete;
 
+    // General settings
+    int m_checkIntervalSeconds{ConfigDefaults::CHECK_INTERVAL_SECONDS};
+    bool m_keepLogs{ConfigDefaults::KEEP_LOGS};
+    std::string m_logLevel{ConfigDefaults::LOG_LEVEL};
+
     // Upload destination toggles
     bool m_telegramEnabled{ConfigDefaults::TELEGRAM_ENABLED};
     bool m_ntfyEnabled{ConfigDefaults::NTFY_ENABLED};
@@ -105,8 +113,4 @@ class Config {
     std::string m_discordApiUrl{ConfigDefaults::DISCORD_API_URL};
     bool m_discordUploadScreenshots{ConfigDefaults::DISCORD_UPLOAD_SCREENSHOTS};
     bool m_discordUploadMovies{ConfigDefaults::DISCORD_UPLOAD_MOVIES};
-
-    // General settings
-    bool m_keepLogs{ConfigDefaults::KEEP_LOGS};
-    int m_checkIntervalSeconds{ConfigDefaults::CHECK_INTERVAL_SECONDS};
 };
