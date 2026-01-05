@@ -7,9 +7,11 @@ telegram = false
 ntfy = false
 discord = false
 
-; Check interval in seconds (default: 3, minimum: 1)
-; How often to check for new screenshots/videos
-; check_interval = 3
+; Check interval in seconds (default: 5, minimum: 1)
+; How often to check for new screenshots/videos.
+; A shorter interval may impact system performance (CPU usage).
+; A longer interval will increase the delay between capture and upload.
+; check_interval = 5
 
 ; Keep log files (true/false, default: false)
 ; If true, log files will be kept every time the sysmodule runs
