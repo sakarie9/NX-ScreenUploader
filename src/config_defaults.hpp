@@ -21,7 +21,7 @@ namespace ConfigDefaults {
 // ============================================================================
 // General settings
 // ============================================================================
-constexpr int CHECK_INTERVAL_SECONDS = 3;
+constexpr int CHECK_INTERVAL_SECONDS = 5;
 constexpr int CHECK_INTERVAL_MINIMUM = 1;
 constexpr bool KEEP_LOGS = false;
 

@@ -5,9 +5,11 @@
 #include <cstring>
 #include <string_view>
 
+#include "album.hpp"
 #include "config.hpp"
 #include "logger.hpp"
 #include "project.h"
+#include "queue.hpp"
 #include "upload.hpp"
 #include "utils.hpp"
 
@@ -15,21 +17,6 @@ namespace {
 // Reduce heap size for memory optimization
 constexpr size_t INNER_HEAP_SIZE = 0x60000;  // 344KB
 
-// Upload task with fixed-size buffer (no heap allocation)
-struct UploadTask {
-    char filePath[128];  // Fixed buffer for path
-    size_t fileSize;
-    bool valid;
-};
-
-// Simple circular queue with static allocation
-constexpr size_t MAX_QUEUE_SIZE = 8;
-UploadTask g_uploadQueue[MAX_QUEUE_SIZE];
-size_t g_queueHead = 0;  // Read position
-size_t g_queueTail = 0;  // Write position
-size_t g_queueCount = 0;
-
-Mutex g_queueMutex;
 Thread g_uploadThread;  // Static thread object
 volatile bool g_threadRunning = false;
 volatile bool g_threadCreated = false;
@@ -169,21 +156,9 @@ void uploadWorkerThread(void* arg) {
     while (true) {
         char filePath[128];
         size_t fileSize = 0;
-        bool hasTask = false;
 
         // Try to get a task from the queue
-        mutexLock(&g_queueMutex);
-        if (g_queueCount > 0) {
-            std::memcpy(filePath, g_uploadQueue[g_queueHead].filePath,
-                        sizeof(filePath));
-            fileSize = g_uploadQueue[g_queueHead].fileSize;
-            g_queueHead = (g_queueHead + 1) % MAX_QUEUE_SIZE;
-            g_queueCount--;
-            hasTask = true;
-        }
-        mutexUnlock(&g_queueMutex);
-
-        if (!hasTask) {
+        if (!queueGet(filePath, sizeof(filePath), fileSize)) {
             break;  // Queue empty, exit thread
         }
 
@@ -373,87 +348,76 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
     Logger::get().info() << "Check interval: " << checkInterval << " second(s)"
                          << endl;
 
-    // Initialize mutex
-    mutexInit(&g_queueMutex);
+    // Initialize queue
+    queueInit();
 
     // Main detection loop (runs forever for sysmodule)
     while (true) {
-        auto tmpItemResult = getLastAlbumItem();
+        // Get the last known item path for comparison
+        std::string_view lastItemPath =
+            lastItemResult.has_value() ? lastItemResult.value() : "";
 
-        // Skip if tmpItem is an error (album not ready)
-        if (!tmpItemResult.has_value()) {
+        auto newItemsResult = getNewAlbumItems(lastItemPath);
+
+        // Skip if error (album not ready)
+        if (!newItemsResult.has_value()) {
             svcSleepThread(sleepDuration);
             continue;
         }
 
-        const std::string& tmpItem = tmpItemResult.value();
+        const auto& newItems = newItemsResult.value();
 
-        // If lastItem was an error, or tmpItem is newer, process it
-        const bool shouldProcess =
-            !lastItemResult.has_value() || lastItemResult.value() < tmpItem;
-
-        if (shouldProcess) {
-            const size_t fs = filesize(tmpItem);
+        // Process all new items
+        for (const auto& item : newItems) {
+            const size_t fs = filesize(item);
 
             if (fs > 0) {
-                bool added = false;
-                size_t queueSize = 0;
-
-                // Add file to upload queue (circular buffer)
-                mutexLock(&g_queueMutex);
-                if (g_queueCount < MAX_QUEUE_SIZE) {
-                    std::strncpy(g_uploadQueue[g_queueTail].filePath,
-                                 tmpItem.c_str(), 127);
-                    g_uploadQueue[g_queueTail].filePath[127] = '\0';
-                    g_uploadQueue[g_queueTail].fileSize = fs;
-                    g_queueTail = (g_queueTail + 1) % MAX_QUEUE_SIZE;
-                    g_queueCount++;
-                    queueSize = g_queueCount;
-                    added = true;
-                }
-                mutexUnlock(&g_queueMutex);
-
-                if (added) {
+                if (queueAdd(item.c_str(), fs)) {
                     Logger::get().info()
-                        << "New: " << tmpItem << " (queue: " << queueSize << ")"
+                        << "New: " << item << " (queue: " << queueCount() << ")"
                         << endl;
-                } else {
-                    Logger::get().error()
-                        << "Queue full, skipping: " << tmpItem << endl;
-                }
 
-                // Start upload thread only if not already running and queue has
-                // items
-                if (!g_threadRunning && queueSize > 0) {
-                    // Wait for previous thread to fully exit if needed
-                    if (g_threadCreated) {
-                        threadWaitForExit(&g_uploadThread);
-                        threadClose(&g_uploadThread);
-                        g_threadCreated = false;
-                    }
+                    // Update lastItemResult only after successful queue
+                    // addition
+                    lastItemResult = item;
 
-                    // Create thread with minimal stack (16KB)
-                    Result rc2 =
-                        threadCreate(&g_uploadThread, uploadWorkerThread,
-                                     nullptr, nullptr, 0x4000, 0x2C, -2);
-                    if (R_FAILED(rc2)) {
-                        Logger::get().error()
-                            << "Thread create failed: " << rc2 << endl;
-                    } else {
-                        rc2 = threadStart(&g_uploadThread);
+                    size_t queueSize = queueCount();
+
+                    // Start upload thread only if not already running and queue
+                    // has items
+                    if (!g_threadRunning && queueSize > 0) {
+                        // Wait for previous thread to fully exit if needed
+                        if (g_threadCreated) {
+                            threadWaitForExit(&g_uploadThread);
+                            threadClose(&g_uploadThread);
+                            g_threadCreated = false;
+                        }
+
+                        // Create thread with minimal stack size
+                        Result rc2 =
+                            threadCreate(&g_uploadThread, uploadWorkerThread,
+                                         nullptr, nullptr, 0x5000, 0x2C, -2);
                         if (R_FAILED(rc2)) {
                             Logger::get().error()
-                                << "Thread start failed: " << rc2 << endl;
-                            threadClose(&g_uploadThread);
+                                << "Thread create failed: " << rc2 << endl;
                         } else {
-                            g_threadCreated = true;
-                            g_threadRunning = true;
+                            rc2 = threadStart(&g_uploadThread);
+                            if (R_FAILED(rc2)) {
+                                Logger::get().error()
+                                    << "Thread start failed: " << rc2 << endl;
+                                threadClose(&g_uploadThread);
+                            } else {
+                                g_threadCreated = true;
+                                g_threadRunning = true;
+                            }
                         }
                     }
+                } else {
+                    Logger::get().error()
+                        << "Queue full, skipping: " << item << endl;
+                    // Do not update lastItemResult - we'll retry this item on
+                    // next iteration
                 }
-
-                // Update lastItemResult to avoid re-detecting the same file
-                lastItemResult = tmpItem;
             }
         }
 
