@@ -33,8 +33,9 @@ class Logger;
 // Lightweight string builder for log messages
 class LogMessage {
    public:
+    // Constructor with lock for enabled logs
     LogMessage(FILE* file, const char* prefix,
-               std::unique_lock<std::mutex>&& lock)
+               std::unique_lock<std::mutex>&& lock) noexcept
         : m_file(file), m_lock(std::move(lock)) {
         if (m_file && prefix) {
             std::fputs(prefix, m_file);
@@ -42,7 +43,7 @@ class LogMessage {
     }
 
     // Default constructor for disabled logs
-    LogMessage() : m_file(nullptr), m_lock() {}
+    LogMessage() noexcept : m_file(nullptr), m_lock() {}
 
     // Move constructor
     LogMessage(LogMessage&& other) noexcept
@@ -129,11 +130,10 @@ class Logger {
         return instance;
     }
 
-    ~Logger() { close(); }
+    ~Logger() = default;
 
     void truncate() {
         std::unique_lock<std::mutex> lock(m_mutex);
-        close();
         FILE* f = std::fopen(LOGFILE_PATH.data(), "w");
         if (f) std::fclose(f);
     }
@@ -141,10 +141,7 @@ class Logger {
     constexpr void setLevel(LogLevel level) noexcept { m_level = level; }
 
     void close() {
-        if (m_file) {
-            std::fclose(m_file);
-            m_file = nullptr;
-        }
+        // No-op: files are opened and closed per log message
     }
 
     [[nodiscard]] constexpr bool isEnabled(LogLevel level) const noexcept {
@@ -153,9 +150,12 @@ class Logger {
 
     LogMessage debug() {
         if (isEnabled(LogLevel::DEBUG)) {
-            auto lock = acquireLock();
-            open();
-            return LogMessage(m_file, getPrefix(LogLevel::DEBUG),
+            std::unique_lock<std::mutex> lock(m_mutex);
+            FILE* file = std::fopen(LOGFILE_PATH.data(), "a");
+            if (file) {
+                std::setvbuf(file, nullptr, _IONBF, 0);
+            }
+            return LogMessage(file, getPrefix(LogLevel::DEBUG),
                               std::move(lock));
         }
         return LogMessage();
@@ -163,29 +163,36 @@ class Logger {
 
     LogMessage info() {
         if (isEnabled(LogLevel::INFO)) {
-            auto lock = acquireLock();
-            open();
-            return LogMessage(m_file, getPrefix(LogLevel::INFO),
-                              std::move(lock));
+            std::unique_lock<std::mutex> lock(m_mutex);
+            FILE* file = std::fopen(LOGFILE_PATH.data(), "a");
+            if (file) {
+                std::setvbuf(file, nullptr, _IONBF, 0);
+            }
+            return LogMessage(file, getPrefix(LogLevel::INFO), std::move(lock));
         }
         return LogMessage();
     }
 
     LogMessage warn() {
         if (isEnabled(LogLevel::WARN)) {
-            auto lock = acquireLock();
-            open();
-            return LogMessage(m_file, getPrefix(LogLevel::WARN),
-                              std::move(lock));
+            std::unique_lock<std::mutex> lock(m_mutex);
+            FILE* file = std::fopen(LOGFILE_PATH.data(), "a");
+            if (file) {
+                std::setvbuf(file, nullptr, _IONBF, 0);
+            }
+            return LogMessage(file, getPrefix(LogLevel::WARN), std::move(lock));
         }
         return LogMessage();
     }
 
     LogMessage error() {
         if (isEnabled(LogLevel::ERROR)) {
-            auto lock = acquireLock();
-            open();
-            return LogMessage(m_file, getPrefix(LogLevel::ERROR),
+            std::unique_lock<std::mutex> lock(m_mutex);
+            FILE* file = std::fopen(LOGFILE_PATH.data(), "a");
+            if (file) {
+                std::setvbuf(file, nullptr, _IONBF, 0);
+            }
+            return LogMessage(file, getPrefix(LogLevel::ERROR),
                               std::move(lock));
         }
         return LogMessage();
@@ -193,10 +200,12 @@ class Logger {
 
     LogMessage none() {
         if (isEnabled(LogLevel::NONE)) {
-            auto lock = acquireLock();
-            open();
-            return LogMessage(m_file, getPrefix(LogLevel::NONE),
-                              std::move(lock));
+            std::unique_lock<std::mutex> lock(m_mutex);
+            FILE* file = std::fopen(LOGFILE_PATH.data(), "a");
+            if (file) {
+                std::setvbuf(file, nullptr, _IONBF, 0);
+            }
+            return LogMessage(file, getPrefix(LogLevel::NONE), std::move(lock));
         }
         return LogMessage();
     }
@@ -205,21 +214,6 @@ class Logger {
     Logger() = default;
     Logger(const Logger&) = delete;
     Logger& operator=(const Logger&) = delete;
-
-    std::unique_lock<std::mutex> acquireLock() {
-        return std::unique_lock<std::mutex>(m_mutex);
-    }
-
-    void open() {
-        if (!m_file) {
-            m_file = std::fopen(LOGFILE_PATH.data(), "a");
-            // Use unbuffered mode for real-time log viewing
-            if (m_file) {
-                std::setvbuf(m_file, nullptr, _IONBF,
-                             0);  // No buffering - logs visible immediately
-            }
-        }
-    }
 
     static const char* getPrefix(LogLevel lvl) {
         static std::array<char, 64> buffer{};
@@ -250,9 +244,6 @@ class Logger {
         return buffer.data();
     }
 
-    FILE* m_file = nullptr;
     LogLevel m_level{LogLevel::INFO};
     std::mutex m_mutex;
 };
-
-// Implementation of unused clearLoggerFile() removed as it's no longer needed
