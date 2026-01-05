@@ -179,10 +179,10 @@ std::expected<std::string, std::string> getLastAlbumItem() {
 
 #ifdef ENABLE_TIME_FUNCTIONS
     const auto endTime = std::chrono::high_resolution_clock::now();
-    const auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(
+    const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
         endTime - startTime);
     Logger::get().debug() << "[getLastAlbumItem] Success " << " ("
-                          << duration.count() << "ns)" << endl;
+                          << duration.count() << "ms)" << endl;
     Logger::get().close();
 #endif
 
@@ -258,10 +258,10 @@ std::expected<std::vector<std::string>, std::string> getNewAlbumItems(
 
 #ifdef ENABLE_TIME_FUNCTIONS
     const auto endTime = std::chrono::high_resolution_clock::now();
-    const auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(
+    const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
         endTime - startTime);
     Logger::get().debug() << "[getNewAlbumItems] Found " << newItems.size()
-                          << " new items (" << duration.count() << "ns)"
+                          << " new items (" << duration.count() << "ms)"
                           << endl;
     Logger::get().close();
 #endif

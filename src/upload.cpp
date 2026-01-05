@@ -316,7 +316,8 @@ bool sendFileToNtfy(std::string_view path, size_t size) {
     url += "/";
     url += topic;
 
-    Logger::get().debug() << logPrefix << "URL is " << url << endl;
+    // url will expose bot token in logs, so avoid logging it
+    // Logger::get().debug() << logPrefix << "URL is " << url << endl;
 
     // Build headers
     struct curl_slist* headers = nullptr;
