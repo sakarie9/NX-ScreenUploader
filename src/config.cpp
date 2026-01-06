@@ -12,17 +12,15 @@ static constexpr const char* CONFIG_PATH =
 
 // Helper: read a string value with an upper bound of maxlen characters
 static std::string ini_get_string(const char* section, const char* key,
-                                  std::string_view default_value,
-                                  size_t maxlen = 256) {
-    std::string result(maxlen, '\0');
-    int len = ini_gets(section, key, default_value.data(), result.data(),
-                       maxlen, CONFIG_PATH);
+                                  std::string_view default_value) {
+    char stackBuffer[256];
+    int len = ini_gets(section, key, default_value.data(), stackBuffer,
+                       sizeof(stackBuffer), CONFIG_PATH);
     if (len > 0) {
-        result.resize(len);
+        return std::string(stackBuffer, len);
     } else {
-        result = default_value;
+        return std::string(default_value);
     }
-    return result;
 }
 
 // Helper: read a boolean value
