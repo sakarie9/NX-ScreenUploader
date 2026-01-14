@@ -4,7 +4,7 @@
             "name": "DKP aarch64",
             "includePath": [
                 "${env:DEVKITPRO}/devkitA64/aarch64-none-elf/include/**",
-                "${env:DEVKITPRO}/devkitA64/lib/gcc/aarch64-none-elf/15.1.0/include/**",
+                "${env:DEVKITPRO}/devkitA64/lib/gcc/aarch64-none-elf/15.2.0/include/**",
                 "${env:DEVKITPRO}/libnx/include/**",
                 "${env:DEVKITPRO}/portlibs/switch/include/**",
                 "src/**",
