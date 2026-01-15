@@ -1,0 +1,29 @@
+name: Release
+
+on:
+    push:
+        tags:
+            - "v*"
+
+jobs:
+    build:
+        runs-on: ubuntu-latest
+
+        container:
+            image: devkitpro/devkita64:latest
+
+        steps:
+            - uses: actions/checkout@v6
+
+            - uses: lukka/get-cmake@latest
+
+            - name: Build
+              run: bash scripts/build.sh
+
+            - name: Create release package
+              run: bash scripts/release.sh
+
+            - name: Create Release
+              uses: softprops/action-gh-release@v2
+              with:
+                  files: build/NX-ScreenUploader.zip

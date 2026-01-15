@@ -1,0 +1,26 @@
+name: CI
+
+on:
+    push:
+    pull_request:
+
+jobs:
+    build:
+        runs-on: ubuntu-latest
+
+        container:
+            image: devkitpro/devkita64:latest
+
+        steps:
+            - uses: actions/checkout@v6
+
+            - uses: lukka/get-cmake@latest
+
+            - name: Build
+              run: bash scripts/build.sh
+
+            - name: Upload artifacts
+              uses: actions/upload-artifact@v6
+              with:
+                  name: NX-ScreenUploader
+                  path: build/*.nsp
