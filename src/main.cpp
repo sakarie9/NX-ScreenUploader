@@ -17,9 +17,6 @@ namespace {
 // Reduce heap size for memory optimization
 constexpr size_t INNER_HEAP_SIZE = 0x60000;  // 344KB
 
-Thread g_uploadThread;  // Static thread object
-volatile bool g_threadRunning = false;
-volatile bool g_threadCreated = false;
 constexpr size_t TCP_TX_BUF_SIZE = 0x800;
 constexpr size_t TCP_RX_BUF_SIZE = 0x1000;
 constexpr size_t TCP_TX_BUF_SIZE_MAX = 0x2EE0;
@@ -151,10 +148,8 @@ inline void exponentialBackoff(int retryCount) {
     svcSleepThread(delayMs * 1'000'000ULL);
 }
 
-// Upload worker thread function
-void uploadWorkerThread(void* arg) {
-    Logger::get().info() << "[Worker] Started" << endl;
-
+// Process upload queue
+void processUploadQueue() {
     // Get config values once
     const std::string_view telegramUploadMode =
         Config::get().getTelegramUploadMode();
@@ -169,19 +164,16 @@ void uploadWorkerThread(void* arg) {
 
         // Try to get a task from the queue
         if (!queueGet(filePath, sizeof(filePath), fileSize)) {
-            break;  // Queue empty, exit thread
+            break;  // Queue empty, exit
         }
 
-        // Determine max retries based on file type (image=2, video=3)
-        const int maxRetries = getMaxRetries(filePath);
-        const bool isVideo =
-            (std::strlen(filePath) >= 4 &&
-             std::strcmp(filePath + std::strlen(filePath) - 4, ".mp4") == 0);
+        // Determine max retries based on file type
+        const bool isVideo = isVideoFile(filePath);
+        const int maxRetries = getMaxRetries(isVideo);
 
-        Logger::get().info()
-            << "[Worker] Uploading: " << filePath << " (" << fileSize
-            << " bytes, " << (isVideo ? "video" : "image") << ", max "
-            << maxRetries << " retries)" << endl;
+        Logger::get().info() << "Uploading: " << filePath << " (" << fileSize
+                             << " bytes, " << (isVideo ? "video" : "image")
+                             << ", max " << maxRetries << " retries)" << endl;
 
         bool anySuccess = false;
 
@@ -251,9 +243,6 @@ void uploadWorkerThread(void* arg) {
             Logger::get().error() << "All uploads failed" << endl;
         }
     }
-
-    g_threadRunning = false;
-    Logger::get().info() << "[Worker] Exiting" << endl;
 }
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
@@ -390,38 +379,6 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
                     // Update lastItemResult only after successful queue
                     // addition
                     lastItemResult = item;
-
-                    size_t queueSize = queueCount();
-
-                    // Start upload thread only if not already running and queue
-                    // has items
-                    if (!g_threadRunning && queueSize > 0) {
-                        // Wait for previous thread to fully exit if needed
-                        if (g_threadCreated) {
-                            threadWaitForExit(&g_uploadThread);
-                            threadClose(&g_uploadThread);
-                            g_threadCreated = false;
-                        }
-
-                        // Create thread with minimal stack size
-                        Result rc2 =
-                            threadCreate(&g_uploadThread, uploadWorkerThread,
-                                         nullptr, nullptr, 0x5000, 0x2C, -2);
-                        if (R_FAILED(rc2)) {
-                            Logger::get().error()
-                                << "Thread create failed: " << rc2 << endl;
-                        } else {
-                            rc2 = threadStart(&g_uploadThread);
-                            if (R_FAILED(rc2)) {
-                                Logger::get().error()
-                                    << "Thread start failed: " << rc2 << endl;
-                                threadClose(&g_uploadThread);
-                            } else {
-                                g_threadCreated = true;
-                                g_threadRunning = true;
-                            }
-                        }
-                    }
                 } else {
                     Logger::get().error()
                         << "Queue full, skipping: " << item << endl;
@@ -431,12 +388,11 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
             }
         }
 
-        svcSleepThread(sleepDuration);
-    }
+        // Process the upload queue immediately after detecting new items
+        if (queueCount() > 0) {
+            processUploadQueue();
+        }
 
-    // Cleanup: wait for upload thread if still running
-    if (g_threadCreated) {
-        threadWaitForExit(&g_uploadThread);
-        threadClose(&g_uploadThread);
+        svcSleepThread(sleepDuration);
     }
 }

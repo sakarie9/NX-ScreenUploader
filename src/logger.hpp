@@ -1,7 +1,6 @@
 #pragma once
 
 #include <array>
-#include <mutex>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -33,21 +32,18 @@ class Logger;
 // Lightweight string builder for log messages
 class LogMessage {
    public:
-    // Constructor with lock for enabled logs
-    LogMessage(FILE* file, const char* prefix,
-               std::unique_lock<std::mutex>&& lock) noexcept
-        : m_file(file), m_lock(std::move(lock)) {
+    // Constructor for enabled logs
+    LogMessage(FILE* file, const char* prefix) noexcept : m_file(file) {
         if (m_file && prefix) {
             std::fputs(prefix, m_file);
         }
     }
 
     // Default constructor for disabled logs
-    LogMessage() noexcept : m_file(nullptr), m_lock() {}
+    LogMessage() noexcept : m_file(nullptr) {}
 
     // Move constructor
-    LogMessage(LogMessage&& other) noexcept
-        : m_file(other.m_file), m_lock(std::move(other.m_lock)) {
+    LogMessage(LogMessage&& other) noexcept : m_file(other.m_file) {
         other.m_file = nullptr;
     }
 
@@ -57,13 +53,12 @@ class LogMessage {
     LogMessage& operator=(LogMessage&&) = delete;
 
     ~LogMessage() {
-        // Close file after each message and release lock
+        // Close file after each message
         if (m_file) {
             std::fflush(m_file);
             std::fclose(m_file);
             m_file = nullptr;
         }
-        // Lock automatically released when m_lock goes out of scope
     }
 
     friend class Logger;  // Allow Logger to access our private members if
@@ -120,7 +115,6 @@ class LogMessage {
 
    private:
     FILE* m_file;
-    std::unique_lock<std::mutex> m_lock;
 };
 
 class Logger {
@@ -133,7 +127,6 @@ class Logger {
     ~Logger() = default;
 
     void truncate() {
-        std::unique_lock<std::mutex> lock(m_mutex);
         FILE* f = std::fopen(LOGFILE_PATH.data(), "w");
         if (f) std::fclose(f);
     }
@@ -150,62 +143,55 @@ class Logger {
 
     LogMessage debug() {
         if (isEnabled(LogLevel::DEBUG)) {
-            std::unique_lock<std::mutex> lock(m_mutex);
             FILE* file = std::fopen(LOGFILE_PATH.data(), "a");
             if (file) {
                 std::setvbuf(file, nullptr, _IONBF, 0);
             }
-            return LogMessage(file, getPrefix(LogLevel::DEBUG),
-                              std::move(lock));
+            return LogMessage(file, getPrefix(LogLevel::DEBUG));
         }
         return LogMessage();
     }
 
     LogMessage info() {
         if (isEnabled(LogLevel::INFO)) {
-            std::unique_lock<std::mutex> lock(m_mutex);
             FILE* file = std::fopen(LOGFILE_PATH.data(), "a");
             if (file) {
                 std::setvbuf(file, nullptr, _IONBF, 0);
             }
-            return LogMessage(file, getPrefix(LogLevel::INFO), std::move(lock));
+            return LogMessage(file, getPrefix(LogLevel::INFO));
         }
         return LogMessage();
     }
 
     LogMessage warn() {
         if (isEnabled(LogLevel::WARN)) {
-            std::unique_lock<std::mutex> lock(m_mutex);
             FILE* file = std::fopen(LOGFILE_PATH.data(), "a");
             if (file) {
                 std::setvbuf(file, nullptr, _IONBF, 0);
             }
-            return LogMessage(file, getPrefix(LogLevel::WARN), std::move(lock));
+            return LogMessage(file, getPrefix(LogLevel::WARN));
         }
         return LogMessage();
     }
 
     LogMessage error() {
         if (isEnabled(LogLevel::ERROR)) {
-            std::unique_lock<std::mutex> lock(m_mutex);
             FILE* file = std::fopen(LOGFILE_PATH.data(), "a");
             if (file) {
                 std::setvbuf(file, nullptr, _IONBF, 0);
             }
-            return LogMessage(file, getPrefix(LogLevel::ERROR),
-                              std::move(lock));
+            return LogMessage(file, getPrefix(LogLevel::ERROR));
         }
         return LogMessage();
     }
 
     LogMessage none() {
         if (isEnabled(LogLevel::NONE)) {
-            std::unique_lock<std::mutex> lock(m_mutex);
             FILE* file = std::fopen(LOGFILE_PATH.data(), "a");
             if (file) {
                 std::setvbuf(file, nullptr, _IONBF, 0);
             }
-            return LogMessage(file, getPrefix(LogLevel::NONE), std::move(lock));
+            return LogMessage(file, getPrefix(LogLevel::NONE));
         }
         return LogMessage();
     }
@@ -245,5 +231,4 @@ class Logger {
     }
 
     LogLevel m_level{LogLevel::INFO};
-    std::mutex m_mutex;
 };

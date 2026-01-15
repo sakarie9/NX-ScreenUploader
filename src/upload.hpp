@@ -18,9 +18,22 @@ struct VideoTimeouts {
     static constexpr int maxRetries = 3;
 };
 
+// Check if file is a video based on extension
+inline bool isVideoFile(std::string_view path) {
+    return (path.size() >= 4 && path.substr(path.size() - 4) == ".mp4");
+}
+
+// Get max retries based on boolean flag
+inline int getMaxRetries(bool isVideo) {
+    if (isVideo) {
+        return VideoTimeouts::maxRetries;
+    }
+    return ImageTimeouts::maxRetries;
+}
+
 // Get max retries based on file type (check if path ends with .mp4)
-inline int getMaxRetries(std::string_view path) {
-    if (path.size() >= 4 && path.substr(path.size() - 4) == ".mp4") {
+inline int getMaxRetriesFromPath(std::string_view path) {
+    if (isVideoFile(path)) {
         return VideoTimeouts::maxRetries;
     }
     return ImageTimeouts::maxRetries;
