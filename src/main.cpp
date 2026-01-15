@@ -15,7 +15,7 @@
 
 namespace {
 // Reduce heap size for memory optimization
-constexpr size_t INNER_HEAP_SIZE = 0x60000;  // 344KB
+constexpr size_t INNER_HEAP_SIZE = 0x50000;  // 320KB
 
 constexpr size_t TCP_TX_BUF_SIZE = 0x800;
 constexpr size_t TCP_RX_BUF_SIZE = 0x1000;
