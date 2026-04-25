@@ -35,6 +35,7 @@ class Config {
     [[nodiscard]] constexpr bool discordEnabled() const noexcept {
         return m_discordEnabled;
     }
+    [[nodiscard]] constexpr bool immichEnabled() const noexcept {return m_immichEnabled;}
 
     // Telegram configuration
     [[nodiscard]] std::string_view getTelegramBotToken() const noexcept;
@@ -73,6 +74,12 @@ class Config {
         return m_discordUploadMovies;
     }
 
+    // Immich configuration
+    [[nodiscard]] std::string_view getImmichServerUrl() const noexcept;
+    [[nodiscard]] std::string_view getImmichApiKey() const noexcept;
+    [[nodiscard]] constexpr bool immichUploadScreenshots() const noexcept {return m_immichUploadScreenshots;}
+    [[nodiscard]] constexpr bool immichUploadMovies() const noexcept {return m_immichUploadMovies;}
+
     bool error{false};
 
    private:
@@ -89,6 +96,7 @@ class Config {
     bool m_telegramEnabled{ConfigDefaults::TELEGRAM_ENABLED};
     bool m_ntfyEnabled{ConfigDefaults::NTFY_ENABLED};
     bool m_discordEnabled{ConfigDefaults::DISCORD_ENABLED};
+    bool m_immichEnabled{ConfigDefaults::IMMICH_ENABLED};
 
     // Telegram configuration
     std::string m_telegramBotToken{ConfigDefaults::TELEGRAM_BOT_TOKEN};
@@ -113,4 +121,10 @@ class Config {
     std::string m_discordApiUrl{ConfigDefaults::DISCORD_API_URL};
     bool m_discordUploadScreenshots{ConfigDefaults::DISCORD_UPLOAD_SCREENSHOTS};
     bool m_discordUploadMovies{ConfigDefaults::DISCORD_UPLOAD_MOVIES};
+
+    // Immich configuration
+    std::string m_immichServerUrl{ConfigDefaults::IMMICH_SERVER_URL};
+    std::string m_immichApiKey{ConfigDefaults::IMMICH_API_KEY};
+    bool m_immichUploadScreenshots{ConfigDefaults::IMMICH_UPLOAD_SCREENSHOTS};
+    bool m_immichUploadMovies{ConfigDefaults::IMMICH_UPLOAD_MOVIES};
 };

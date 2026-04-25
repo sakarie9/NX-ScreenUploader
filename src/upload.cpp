@@ -8,6 +8,7 @@
 #include "config.hpp"
 #include "logger.hpp"
 
+
 namespace fs = std::filesystem;
 
 namespace {
@@ -556,6 +557,165 @@ bool sendFileToDiscord(std::string_view path, size_t size) {
         curl_easy_cleanup(curl);
         curl_formfree(formpost);
         curl_slist_free_all(headers);
+        return false;
+    }
+}
+
+
+bool sendFileToImmich(std::string_view path, size_t size) {
+    constexpr std::string_view logPrefix = "[Immich] ";
+    std::string_view tid;
+    bool isMovie;
+
+    Logger::get().info() << logPrefix << "Starting upload - File: " << path
+                         << ", Size: " << size << " bytes ("
+                         << (size / 1024.0 / 1024.0) << " MB)" << endl;
+
+    // Validate file and check if upload is needed
+    const auto validationResult = validateUploadFile(
+        path, logPrefix, tid, isMovie, Config::get().immichUploadScreenshots(),
+        Config::get().immichUploadMovies());
+    if (validationResult == ValidationResult::Error) {
+        return false;
+    }
+    if (validationResult == ValidationResult::Skip) {
+        return true;  // Not an error, just skipping per config
+    }
+
+    const fs::path filePath{path};
+    const std::string filename = filePath.filename().string();
+
+    FILE* f = std::fopen(filePath.c_str(), "rb");
+    if (f == nullptr) {
+        Logger::get().error()
+            << logPrefix << "fopen() failed for file: " << path << endl;
+        return false;
+    }
+
+    CURL* curl = curl_easy_init();
+    if (!curl) {
+        std::fclose(f);
+        //curl_formfree(formpost);
+        Logger::get().error() << logPrefix << "curl_easy_init() failed" << endl;
+        return false;
+    }
+
+    // Build URL
+    const auto immichServerUrl = Config::get().getImmichServerUrl();
+    const auto immichApiKey = Config::get().getImmichApiKey();
+
+    std::string url;
+    url.reserve(immichServerUrl.size());
+    url += immichServerUrl;
+    url += "/api";
+    url += "/assets";
+    
+    Logger::get().debug() << logPrefix << "URL is " << url << endl;
+
+    // Build headers
+    std::string authHeader = "x-api-key: ";
+    authHeader += immichApiKey;
+    struct curl_slist *slist1 = NULL;
+    slist1 = curl_slist_append(slist1, authHeader.c_str());
+    curl_mime *mime;
+    curl_mimepart *part;
+
+    /* Send the data using a mime object as "assetData" */
+    mime = curl_mime_init(curl);
+    part = curl_mime_addpart(mime);
+    curl_mime_type(part, "multipart/mixed");
+    curl_mime_filedata(part, path.data());
+    curl_mime_name(part, "assetData");
+
+    // Setting all device name stuffs as NX as it isn't used by Immich any more.
+    part = curl_mime_addpart(mime);
+    curl_mime_name(part, "deviceAssetId");
+    curl_mime_data(part, "NX", CURL_ZERO_TERMINATED);
+
+    part = curl_mime_addpart(mime);
+    curl_mime_name(part, "deviceId");
+    curl_mime_data(part, "NX", CURL_ZERO_TERMINATED);
+
+    // Get the local time for the switch and present it to Immich in the fileCreatedAt and fileModifiedAt fields
+    time_t now;
+    time(&now);
+    char buf[sizeof "2011-10-08T07:07:09Z"];
+    strftime(buf, sizeof buf, "%FT%TZ", localtime(&now));
+
+    part = curl_mime_addpart(mime);
+    curl_mime_name(part, "fileCreatedAt");
+    curl_mime_data(part, buf, CURL_ZERO_TERMINATED);
+
+    part = curl_mime_addpart(mime);
+    curl_mime_name(part, "fileModifiedAt");
+    curl_mime_data(part, buf, CURL_ZERO_TERMINATED);
+
+    
+    curl_easy_setopt(curl, CURLOPT_MIMEPOST, mime);
+    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(curl, CURLOPT_READFUNCTION, uploadReadFunction);
+    curl_easy_setopt(curl, CURLOPT_INFILESIZE_LARGE, static_cast<curl_off_t>(size));
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, slist1);
+    curl_easy_setopt(curl, CURLOPT_BUFFERSIZE, NX_CURL_BUFFERSIZE);
+    curl_easy_setopt(curl, CURLOPT_UPLOAD_BUFFERSIZE, NX_CURL_UPLOAD_BUFFERSIZE);
+    setCurlTimeouts(curl, isMovie);
+
+    Logger::get().debug() << logPrefix << "CURL config - File type: "
+                          << (isMovie ? "video" : "image")
+                          << ", Connect timeout: "
+                          << (isMovie ? VideoTimeouts::connectTimeout
+                                      : ImageTimeouts::connectTimeout)
+                          << "s, Idle timeout: "
+                          << (isMovie ? VideoTimeouts::idleTimeout
+                                      : ImageTimeouts::idleTimeout)
+                          << "s, Total timeout: "
+                          << (isMovie ? VideoTimeouts::totalTimeout
+                                      : ImageTimeouts::totalTimeout)
+                          << "s" << endl;
+    Logger::get().info() << logPrefix << "Starting CURL transfer..." << endl;
+
+    const CURLcode res = curl_easy_perform(curl);
+    std::fclose(f);
+
+    if (res == CURLE_OK) {
+        long responseCode;
+        double requestSize;
+        double totalTime;
+        double uploadSpeed;
+        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &responseCode);
+        curl_easy_getinfo(curl, CURLINFO_SIZE_UPLOAD, &requestSize);
+        curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME, &totalTime);
+        curl_easy_getinfo(curl, CURLINFO_SPEED_UPLOAD, &uploadSpeed);
+
+        Logger::get().info()
+            << logPrefix << "Transfer complete - " << requestSize
+            << " bytes sent (" << (requestSize / 1024.0 / 1024.0) << " MB), "
+            << "Response code: " << responseCode << ", "
+            << "Time: " << totalTime << "s, "
+            << "Speed: " << (uploadSpeed / 1024.0) << " KB/s" << endl;
+
+        curl_easy_cleanup(curl);
+        curl_slist_free_all(slist1);
+
+        if (responseCode == 200 || responseCode == 201) {
+            Logger::get().info()
+                << logPrefix << "Successfully uploaded " << path << endl;
+            return true;
+        }
+
+        Logger::get().error()
+            << logPrefix << "HTTP error - Response code: " << responseCode
+            << ", File: " << path << ", Size: " << size << " bytes" << endl;
+        return false;
+    } else {
+        double requestSize = 0;
+        curl_easy_getinfo(curl, CURLINFO_SIZE_UPLOAD, &requestSize);
+        Logger::get().error()
+            << logPrefix << "CURL error: " << curl_easy_strerror(res)
+            << " (code: " << res << ")"
+            << ", Bytes sent: " << requestSize << ", File: " << path << endl;
+        curl_easy_cleanup(curl);
+        curl_slist_free_all(slist1);
         return false;
     }
 }
