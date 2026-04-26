@@ -585,16 +585,9 @@ bool sendFileToImmich(std::string_view path, size_t size) {
     const fs::path filePath{path};
     const std::string filename = filePath.filename().string();
 
-    FILE* f = std::fopen(filePath.c_str(), "rb");
-    if (f == nullptr) {
-        Logger::get().error()
-            << logPrefix << "fopen() failed for file: " << path << endl;
-        return false;
-    }
 
     CURL* curl = curl_easy_init();
     if (!curl) {
-        std::fclose(f);
         //curl_formfree(formpost);
         Logger::get().error() << logPrefix << "curl_easy_init() failed" << endl;
         return false;
@@ -653,8 +646,6 @@ bool sendFileToImmich(std::string_view path, size_t size) {
     
     curl_easy_setopt(curl, CURLOPT_MIMEPOST, mime);
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-    curl_easy_setopt(curl, CURLOPT_READFUNCTION, uploadReadFunction);
-    curl_easy_setopt(curl, CURLOPT_INFILESIZE_LARGE, static_cast<curl_off_t>(size));
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, slist1);
     curl_easy_setopt(curl, CURLOPT_BUFFERSIZE, NX_CURL_BUFFERSIZE);
     curl_easy_setopt(curl, CURLOPT_UPLOAD_BUFFERSIZE, NX_CURL_UPLOAD_BUFFERSIZE);
@@ -675,7 +666,6 @@ bool sendFileToImmich(std::string_view path, size_t size) {
     Logger::get().info() << logPrefix << "Starting CURL transfer..." << endl;
 
     const CURLcode res = curl_easy_perform(curl);
-    std::fclose(f);
 
     if (res == CURLE_OK) {
         long responseCode;
