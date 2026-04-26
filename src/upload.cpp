@@ -693,7 +693,7 @@ bool sendFileToImmich(std::string_view path, size_t size) {
             << "Response code: " << responseCode << ", "
             << "Time: " << totalTime << "s, "
             << "Speed: " << (uploadSpeed / 1024.0) << " KB/s" << endl;
-
+        curl_mime_free(mime);
         curl_easy_cleanup(curl);
         curl_slist_free_all(slist1);
 
@@ -715,6 +715,7 @@ bool sendFileToImmich(std::string_view path, size_t size) {
             << " (code: " << res << ")"
             << ", Bytes sent: " << requestSize << ", File: " << path << endl;
         curl_easy_cleanup(curl);
+        curl_mime_free(mime);
         curl_slist_free_all(slist1);
         return false;
     }
