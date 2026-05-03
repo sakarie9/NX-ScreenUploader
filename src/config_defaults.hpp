@@ -32,6 +32,7 @@ constexpr std::string_view LOG_LEVEL = "info";  // debug, info, warn, error
 constexpr bool TELEGRAM_ENABLED = false;
 constexpr bool NTFY_ENABLED = false;
 constexpr bool DISCORD_ENABLED = false;
+constexpr bool IMMICH_ENABLED = false;
 
 // ============================================================================
 // Telegram configuration
@@ -61,6 +62,15 @@ constexpr std::string_view DISCORD_CHANNEL_ID = "";
 constexpr std::string_view DISCORD_API_URL = "https://discord.com/api/v10";
 constexpr bool DISCORD_UPLOAD_SCREENSHOTS = true;
 constexpr bool DISCORD_UPLOAD_MOVIES = false;
+
+// ============================================================================
+// Immich configuration
+// ============================================================================
+
+constexpr std::string_view IMMICH_SERVER_URL = "";
+constexpr std::string_view IMMICH_API_KEY = "";
+constexpr bool IMMICH_UPLOAD_SCREENSHOTS = true;
+constexpr bool IMMICH_UPLOAD_MOVIES = false;
 
 // ============================================================================
 // Configuration validation utilities
@@ -102,6 +112,15 @@ constexpr bool isDiscordValid(std::string_view botToken,
                               std::string_view channelId) noexcept {
     // Both token and chat ID must be non-empty
     return !botToken.empty() && !channelId.empty();
+}
+
+/**
+ * Check if Immich configuration is valid
+ * Returns true if Immich is properly configured
+ */
+constexpr bool isImmichValid(std::string_view serverUrl, std::string_view apiKey) noexcept {
+    // Both serverUrl and apiKey must be non-empty
+    return !serverUrl.empty() && !apiKey.empty();
 }
 
 }  // namespace ConfigDefaults

@@ -4,6 +4,8 @@
 
 #include <cstring>
 #include <string_view>
+#include <iostream>
+#include "time.h"
 
 #include "album.hpp"
 #include "config.hpp"
@@ -35,6 +37,10 @@ u32 __nx_applet_type = AppletType_None;
 
 // Minimize fs resource usage for memory optimization
 u32 __nx_fs_num_sessions = 1;
+
+void NX_NORETURN __nx_exit(Result rc, LoaderReturnFn retaddr);
+
+void __libnx_init_time(void);
 
 // Newlib heap configuration function (makes malloc/free work).
 void __libnx_initheap(void) {
@@ -68,6 +74,12 @@ void __appInit(void) {
     } else {
         fatalThrow(rc);
     }
+
+    // Initialise the time
+    rc = timeInitialize();
+    __libnx_init_time();
+    // exit time
+    timeExit();
 
     // Necessary to get right CapsAlbumStorage after reboot
     rc = nsInitialize();
@@ -156,6 +168,7 @@ void processUploadQueue() {
     const bool telegramEnabled = Config::get().telegramEnabled();
     const bool ntfyEnabled = Config::get().ntfyEnabled();
     const bool discordEnabled = Config::get().discordEnabled();
+    const bool immichEnabled = Config::get().immichEnabled();
 
     // Process all tasks in queue until empty
     while (true) {
@@ -239,6 +252,26 @@ void processUploadQueue() {
                                       << maxRetries << " attempts" << endl;
         }
 
+        // Upload to Immich with exponential backoff
+        if (immichEnabled) {
+            bool sent = false;
+            for (int retry = 0; retry < maxRetries && !sent; ++retry) {
+                if (retry > 0) {
+                    Logger::get().info() << "[Immich] Retry " << retry << "/"
+                                         << maxRetries << endl;
+                    exponentialBackoff(retry - 1);
+                }
+                sent = sendFileToImmich(filePath, fileSize);
+            }
+            if (sent) {
+                anySuccess = true;
+            }
+            else {
+                Logger::get().error() << "[Immich] Upload failed after "
+                                      << maxRetries << " attempts" << endl;
+            }
+        }
+
         if (!anySuccess) {
             Logger::get().error() << "All uploads failed" << endl;
         }
@@ -259,7 +292,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
     if (!Config::get().refresh()) {
         Logger::get().error()
             << "Configuration validation failed: No valid upload channel "
-               "available (Telegram, Ntfy and Discord are disabled or "
+               "available (Telegram, Ntfy, Discord and Immich are disabled or "
                "misconfigured)."
             << endl;
         Logger::get().error() << "Please check your config.ini file and ensure "
@@ -328,6 +361,9 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
         }
         if (Config::get().discordEnabled()) {
             logger << "[Discord]";
+        }
+        if (Config::get().immichEnabled()) {
+            logger << "[Immich]";
         }
         logger << endl;
     }

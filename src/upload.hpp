@@ -48,3 +48,6 @@ inline int getMaxRetriesFromPath(std::string_view path) {
 
 // Send file to Discord (always original, no compression)
 [[nodiscard]] bool sendFileToDiscord(std::string_view path, size_t size);
+
+// Send file to Immich (always original, no compression)
+[[nodiscard]] bool sendFileToImmich(std::string_view path, size_t size);
