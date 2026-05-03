@@ -172,6 +172,14 @@ bool sendFileToTelegram(std::string_view path, size_t size, bool compression) {
                  CURLFORM_CONTENTSLENGTH, size, CURLFORM_CONTENTTYPE,
                  fileTypeInfo.contentType.data(), CURLFORM_END);
 
+    // Add video dimensions support for Telegram video uploads
+    if (isMovie) {
+        curl_formadd(&formpost, &lastptr, CURLFORM_COPYNAME, "width",
+                     CURLFORM_COPYCONTENTS, "1280", CURLFORM_END);
+        curl_formadd(&formpost, &lastptr, CURLFORM_COPYNAME, "height",
+                     CURLFORM_COPYCONTENTS, "720", CURLFORM_END);
+    }
+
     CURL* curl = curl_easy_init();
     if (!curl) {
         std::fclose(f);
