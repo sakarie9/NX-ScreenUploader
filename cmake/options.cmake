@@ -7,6 +7,6 @@ option(cmake_VERBOSE "Enable for verbose logging." ON)
 # Set to OFF to disable LTO
 option(ENABLE_LTO "Enable Link Time Optimization (LTO)" ON)
 
-# Enable time-related functions (get_time, time initialization)
-# Set to ON to enable time functionality, OFF to disable
-option(ENABLE_TIME_FUNCTIONS "Enable time-related functions" OFF)
+# Enable profiling/timing logs for performance measurement
+# Set to ON to enable performance logging, OFF to disable
+option(ENABLE_PROFILING "Enable profiling/timing logs" OFF)

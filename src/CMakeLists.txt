@@ -22,10 +22,10 @@ add_executable(${HOMEBREW_APP}.elf
         ${SOURCE_DIR}/utils.cpp
         ${SOURCE_DIR}/config.cpp)
 
-# Add conditional compile definitions for time functions
-if (ENABLE_TIME_FUNCTIONS)
-    target_compile_definitions(${HOMEBREW_APP}.elf PRIVATE ENABLE_TIME_FUNCTIONS)
-    cmake_info("Time functions enabled")
+# Add conditional compile definitions for profiling/timing
+if (ENABLE_PROFILING)
+    target_compile_definitions(${HOMEBREW_APP}.elf PRIVATE ENABLE_PROFILING)
+    cmake_info("Profiling enabled")
 else ()
-    cmake_info("Time functions disabled")
+    cmake_info("Profiling disabled")
 endif ()

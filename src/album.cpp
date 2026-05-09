@@ -7,7 +7,7 @@
 #include <string_view>
 #include <vector>
 
-#ifdef ENABLE_TIME_FUNCTIONS
+#ifdef ENABLE_PROFILING
 #include <chrono>
 #endif
 
@@ -152,7 +152,7 @@ void collectFromYearDir(const fs::path& yearDir, std::string_view lastItem,
 }  // namespace
 
 std::expected<std::string, std::string> getLastAlbumItem() {
-#ifdef ENABLE_TIME_FUNCTIONS
+#ifdef ENABLE_PROFILING
     const auto startTime = std::chrono::high_resolution_clock::now();
 #endif
 
@@ -177,7 +177,7 @@ std::expected<std::string, std::string> getLastAlbumItem() {
     if (file.empty())
         return std::unexpected("No files found in " + day.string());
 
-#ifdef ENABLE_TIME_FUNCTIONS
+#ifdef ENABLE_PROFILING
     const auto endTime = std::chrono::high_resolution_clock::now();
     const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
         endTime - startTime);
@@ -191,7 +191,7 @@ std::expected<std::string, std::string> getLastAlbumItem() {
 
 std::expected<std::vector<std::string>, std::string> getNewAlbumItems(
     std::string_view lastItem) {
-#ifdef ENABLE_TIME_FUNCTIONS
+#ifdef ENABLE_PROFILING
     const auto startTime = std::chrono::high_resolution_clock::now();
 #endif
 
@@ -256,7 +256,7 @@ std::expected<std::vector<std::string>, std::string> getNewAlbumItems(
     // Sort results to ensure chronological order
     std::ranges::sort(newItems);
 
-#ifdef ENABLE_TIME_FUNCTIONS
+#ifdef ENABLE_PROFILING
     const auto endTime = std::chrono::high_resolution_clock::now();
     const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
         endTime - startTime);

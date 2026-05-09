@@ -12,7 +12,7 @@ mkdir -p "$BUILD_DIR"
 
 # Build
 cd "$BUILD_DIR"
-cmake .. -DCMAKE_TOOLCHAIN_FILE=../devkita64-libnx.cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DENABLE_TIME_FUNCTIONS=ON
+cmake .. -DCMAKE_TOOLCHAIN_FILE=../devkita64-libnx.cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DENABLE_PROFILING=ON
 make
 
 echo "✓ Build completed!"
