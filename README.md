@@ -9,11 +9,18 @@ This project was forked from [bakatrouble/sys-screenuploader](https://github.com
 ## Features
 
 - Automatically uploads screenshots and screen recordings taken on the Switch
-- Multiple upload destinations: Telegram/Discord/ntfy.sh
+- Multiple upload destinations: Telegram/Discord/ntfy.sh/Immich
 - Custom Telegram Bot API URL support (for reverse proxy)
 - Custom new screen capture check interval support
 - Less memory usage compared to the original project (from ~1.852 MB to ~1.339 MB)
 - No more fatal crashes when opening nxmenu in applet mode alongside other sysmodules
+
+## Supported Upload Destinations
+
+- Telegram: Uploads screen captures to a chat with your own Telegram bot. You can then easily access and share the captures from your Telegram.
+- ntfy.sh: Uploads screen captures to a specified ntfy.sh topic. You can subscribe to this topic using the ntfy mobile app or web interface to receive the captures as notifications.
+- Discord: Uploads screen captures to a specified channel in your Discord server using a Discord bot. You can then view and share the captures from that channel.
+- Immich: Uploads screen captures to your self-hosted [Immich](https://immich.app/) instance using its API. You can then view and manage the captures from the Immich web interface or mobile app.
 
 ## Requirements
 
@@ -55,6 +62,10 @@ Follow [Creating a Bot Account](https://discordpy.readthedocs.io/en/stable/disco
 
 Then get the `Channel ID` of the channel where you want the screenshots to be sent. You can do this by enabling Developer Mode in Discord settings, then right-clicking on the desired channel and selecting "Copy Channel ID".
 
+### Immich
+
+To use Immich, you must have a self-hosted Immich instance and create an API token for authentication. Grab it from <https://my.immich.app/user-settings?isOpen=api-keys>
+
 ### Installation
 
 Once you have prepared your upload destination(s), you can install the sysmodule on your Switch:
@@ -64,6 +75,7 @@ Once you have prepared your upload destination(s), you can install the sysmodule
    - **For Telegram**: Set `telegram = true` in `[general]`, then configure `bot_token` and `chat_id` in `[telegram]` section
    - **For ntfy.sh**: Set `ntfy = true` in `[general]`, then configure `topic` (and optionally `token`) in `[ntfy]` section
    - **For Discord**: Set `discord = true` in `[general]`, then configure `bot_token` and `channel_id` in `[discord]` section
+   - **For Immich**: Set `immich = true` in `[general]`, then configure `server_url` and `api_key` in `[immich]` section
    - You can enable destinations simultaneously
 3. Copy the release contents to the root of your SD card.
 

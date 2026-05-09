@@ -9,11 +9,18 @@
 ## 功能特性
 
 - 自动上传 Switch 上拍摄的截图和录像
-- 多个上传目标：Telegram、Discord、ntfy.sh
+- 多个上传目标：Telegram、Discord、ntfy.sh、Immich
 - 支持自定义 Telegram Bot API URL（用于反向代理）
 - 支持自定义新屏幕截图检查间隔
 - 相比原项目内存使用量更少（从 ~1.852 MB 降低到 ~1.339 MB）
 - 在 applet 模式下打开 nxmenu 时不再发生致命崩溃
+
+## 支持的上传目标
+
+- Telegram：将截图上传到你自己的聊天中。你可以从 Telegram 轻松访问和分享这些截图。
+- ntfy.sh：将截图上传到指定的 ntfy.sh 主题。你可以使用 ntfy 移动应用或网页界面订阅此主题，以通知形式接收截图。
+- Discord：将截图上传到你的 Discord 服务器中的指定频道。你可以从该频道查看和分享截图。
+- Immich：使用其 API 将截图上传到你的自托管 [Immich](https://immich.app/) 实例。你可以从 Immich 网页界面或移动应用查看和管理截图。
 
 ## 需求
 
@@ -55,6 +62,10 @@ Discord 的配置比 Telegram 和 ntfy.sh 稍微复杂一些。
 
 然后获取你想发送截图的频道的 `Channel ID`。你可以在 Discord 设置中启用开发者模式，然后右键单击所需频道并选择"复制频道 ID"。
 
+### Immich
+
+要使用 Immich，你必须有一个自托管的 Immich 实例并创建一个 API 令牌用于认证。从 <https://my.immich.app/user-settings?isOpen=api-keys> 获取。
+
 ### 安装
 
 1. 下载 [最新版本](https://github.com/sakarie9/NX-ScreenUploader)并将其解压到某处。
@@ -62,6 +73,7 @@ Discord 的配置比 Telegram 和 ntfy.sh 稍微复杂一些。
    - **对于 Telegram**：在 `[general]` 中设置 `telegram = true`，然后在 `[telegram]` 部分配置 `bot_token` 和 `chat_id`
    - **对于 ntfy.sh**：在 `[general]` 中设置 `ntfy = true`，然后在 `[ntfy]` 部分配置 `topic`（和可选的 `token`）
    - **对于 Discord**：在 `[general]` 中设置 `discord = true`，然后在 `[discord]` 部分配置 `bot_token` 和 `channel_id`
+   - **对于 Immich**：在 `[general]` 中设置 `immich = true`，然后在 `[immich]` 部分配置 `server_url` 和 `api_key`
    - 你可以同时启用多个目标
 3. 将发布内容复制到你的 SD 卡的根目录。
 
