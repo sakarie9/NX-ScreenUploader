@@ -118,7 +118,8 @@ constexpr bool isDiscordValid(std::string_view botToken,
  * Check if Immich configuration is valid
  * Returns true if Immich is properly configured
  */
-constexpr bool isImmichValid(std::string_view serverUrl, std::string_view apiKey) noexcept {
+constexpr bool isImmichValid(std::string_view serverUrl,
+                             std::string_view apiKey) noexcept {
     // Both serverUrl and apiKey must be non-empty
     return !serverUrl.empty() && !apiKey.empty();
 }

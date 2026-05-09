@@ -35,7 +35,9 @@ class Config {
     [[nodiscard]] constexpr bool discordEnabled() const noexcept {
         return m_discordEnabled;
     }
-    [[nodiscard]] constexpr bool immichEnabled() const noexcept {return m_immichEnabled;}
+    [[nodiscard]] constexpr bool immichEnabled() const noexcept {
+        return m_immichEnabled;
+    }
 
     // Telegram configuration
     [[nodiscard]] std::string_view getTelegramBotToken() const noexcept;
@@ -77,8 +79,12 @@ class Config {
     // Immich configuration
     [[nodiscard]] std::string_view getImmichServerUrl() const noexcept;
     [[nodiscard]] std::string_view getImmichApiKey() const noexcept;
-    [[nodiscard]] constexpr bool immichUploadScreenshots() const noexcept {return m_immichUploadScreenshots;}
-    [[nodiscard]] constexpr bool immichUploadMovies() const noexcept {return m_immichUploadMovies;}
+    [[nodiscard]] constexpr bool immichUploadScreenshots() const noexcept {
+        return m_immichUploadScreenshots;
+    }
+    [[nodiscard]] constexpr bool immichUploadMovies() const noexcept {
+        return m_immichUploadMovies;
+    }
 
     bool error{false};
 

@@ -56,8 +56,8 @@ bool Config::refresh() {
         ini_get_bool("general", "ntfy", ConfigDefaults::NTFY_ENABLED);
     m_discordEnabled =
         ini_get_bool("general", "discord", ConfigDefaults::DISCORD_ENABLED);
-    m_immichEnabled = ini_get_bool("general", "immich", ConfigDefaults::IMMICH_ENABLED);
-
+    m_immichEnabled =
+        ini_get_bool("general", "immich", ConfigDefaults::IMMICH_ENABLED);
 
     // Read Telegram configuration from [telegram] section
     m_telegramBotToken = ini_get_string("telegram", "bot_token",
@@ -102,10 +102,15 @@ bool Config::refresh() {
                                          ConfigDefaults::DISCORD_UPLOAD_MOVIES);
 
     // Read Immich configuration from [immich] section
-    m_immichServerUrl = ini_get_string("immich", "server_url", ConfigDefaults::IMMICH_SERVER_URL);
-    m_immichApiKey = ini_get_string("immich", "api_key", ConfigDefaults::IMMICH_API_KEY);
-    m_immichUploadScreenshots = ini_get_bool("immich", "upload_screenshots", ConfigDefaults::IMMICH_UPLOAD_SCREENSHOTS);
-    m_immichUploadMovies = ini_get_bool("immich", "upload_movies", ConfigDefaults::IMMICH_UPLOAD_MOVIES);
+    m_immichServerUrl = ini_get_string("immich", "server_url",
+                                       ConfigDefaults::IMMICH_SERVER_URL);
+    m_immichApiKey =
+        ini_get_string("immich", "api_key", ConfigDefaults::IMMICH_API_KEY);
+    m_immichUploadScreenshots =
+        ini_get_bool("immich", "upload_screenshots",
+                     ConfigDefaults::IMMICH_UPLOAD_SCREENSHOTS);
+    m_immichUploadMovies = ini_get_bool("immich", "upload_movies",
+                                        ConfigDefaults::IMMICH_UPLOAD_MOVIES);
 
     // Read general settings
     m_keepLogs =
@@ -177,7 +182,8 @@ bool Config::refresh() {
     }
 
     // Validate Immich configuration
-    if (m_immichEnabled && !ConfigDefaults::isImmichValid(m_immichServerUrl, m_immichApiKey)) {
+    if (m_immichEnabled &&
+        !ConfigDefaults::isImmichValid(m_immichServerUrl, m_immichApiKey)) {
         Logger::get().warn()
             << "Immich disabled: Invalid or missing configuration"
                "(server_url and/or api_key are not set or are set to "
@@ -187,7 +193,8 @@ bool Config::refresh() {
     }
 
     // Check if at least one channel is enabled
-    if (!m_telegramEnabled && !m_ntfyEnabled && !m_discordEnabled && !m_immichEnabled) {
+    if (!m_telegramEnabled && !m_ntfyEnabled && !m_discordEnabled &&
+        !m_immichEnabled) {
         return false;  // Indicate failure - no valid upload channel available
     }
 

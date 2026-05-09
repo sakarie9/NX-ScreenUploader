@@ -9,7 +9,6 @@
 #include "logger.hpp"
 #include "utils.hpp"
 
-
 namespace fs = std::filesystem;
 
 namespace {
@@ -570,7 +569,6 @@ bool sendFileToDiscord(std::string_view path, size_t size) {
     }
 }
 
-
 bool sendFileToImmich(std::string_view path, size_t size) {
     constexpr std::string_view logPrefix = "[Immich] ";
     std::string_view tid;
@@ -594,10 +592,9 @@ bool sendFileToImmich(std::string_view path, size_t size) {
     const fs::path filePath{path};
     const std::string filename = filePath.filename().string();
 
-
     CURL* curl = curl_easy_init();
     if (!curl) {
-        //curl_formfree(formpost);
+        // curl_formfree(formpost);
         Logger::get().error() << logPrefix << "curl_easy_init() failed" << endl;
         return false;
     }
@@ -611,16 +608,16 @@ bool sendFileToImmich(std::string_view path, size_t size) {
     url += immichServerUrl;
     url += "/api";
     url += "/assets";
-    
+
     Logger::get().debug() << logPrefix << "URL is " << url << endl;
 
     // Build headers
     std::string authHeader = "x-api-key: ";
     authHeader += immichApiKey;
-    struct curl_slist *slist1 = NULL;
+    struct curl_slist* slist1 = NULL;
     slist1 = curl_slist_append(slist1, authHeader.c_str());
-    curl_mime *mime;
-    curl_mimepart *part;
+    curl_mime* mime;
+    curl_mimepart* part;
 
     /* Send the data using a mime object as "assetData" */
     mime = curl_mime_init(curl);
@@ -638,7 +635,8 @@ bool sendFileToImmich(std::string_view path, size_t size) {
     curl_mime_name(part, "deviceId");
     curl_mime_data(part, "NX", CURL_ZERO_TERMINATED);
 
-    // Get the local time for the switch and present it to Immich in the fileCreatedAt and fileModifiedAt fields
+    // Get the local time for the switch and present it to Immich in the
+    // fileCreatedAt and fileModifiedAt fields
     const std::string timeStr = getCurrentTimeISO8601();
 
     part = curl_mime_addpart(mime);
@@ -649,12 +647,12 @@ bool sendFileToImmich(std::string_view path, size_t size) {
     curl_mime_name(part, "fileModifiedAt");
     curl_mime_data(part, timeStr.c_str(), CURL_ZERO_TERMINATED);
 
-    
     curl_easy_setopt(curl, CURLOPT_MIMEPOST, mime);
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, slist1);
     curl_easy_setopt(curl, CURLOPT_BUFFERSIZE, NX_CURL_BUFFERSIZE);
-    curl_easy_setopt(curl, CURLOPT_UPLOAD_BUFFERSIZE, NX_CURL_UPLOAD_BUFFERSIZE);
+    curl_easy_setopt(curl, CURLOPT_UPLOAD_BUFFERSIZE,
+                     NX_CURL_UPLOAD_BUFFERSIZE);
     setCurlTimeouts(curl, isMovie);
 
     Logger::get().debug() << logPrefix << "CURL config - File type: "

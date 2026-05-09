@@ -261,13 +261,12 @@ void processUploadQueue() {
                 }
                 sent = sendFileToImmich(filePath, fileSize);
             }
-            if (sent) {
+            if (sent)
                 anySuccess = true;
-            }
-            else {
+
+            else
                 Logger::get().error() << "[Immich] Upload failed after "
                                       << maxRetries << " attempts" << endl;
-            }
         }
 
         if (!anySuccess) {
