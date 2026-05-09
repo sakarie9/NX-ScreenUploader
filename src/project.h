@@ -3,9 +3,9 @@
 
 #define APP_TITLE "NX-ScreenUploader"
 #define APP_AUTHOR "Sakari"
-#define APP_VERSION  "0.2.0"
+#define APP_VERSION  "0.2.2"
 #define VERSION_MAJOR "0"
 #define VERSION_MINOR "2"
-#define VERSION_MICRO "0"
+#define VERSION_MICRO "2"
 
 #endif // INCLUDE_GUARD
