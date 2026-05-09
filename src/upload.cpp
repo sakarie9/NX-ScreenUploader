@@ -7,6 +7,7 @@
 
 #include "config.hpp"
 #include "logger.hpp"
+#include "utils.hpp"
 
 
 namespace fs = std::filesystem;
@@ -638,18 +639,15 @@ bool sendFileToImmich(std::string_view path, size_t size) {
     curl_mime_data(part, "NX", CURL_ZERO_TERMINATED);
 
     // Get the local time for the switch and present it to Immich in the fileCreatedAt and fileModifiedAt fields
-    time_t now;
-    time(&now);
-    char buf[sizeof "2011-10-08T07:07:09Z"];
-    strftime(buf, sizeof buf, "%FT%TZ", localtime(&now));
+    const std::string timeStr = getCurrentTimeISO8601();
 
     part = curl_mime_addpart(mime);
     curl_mime_name(part, "fileCreatedAt");
-    curl_mime_data(part, buf, CURL_ZERO_TERMINATED);
+    curl_mime_data(part, timeStr.c_str(), CURL_ZERO_TERMINATED);
 
     part = curl_mime_addpart(mime);
     curl_mime_name(part, "fileModifiedAt");
-    curl_mime_data(part, buf, CURL_ZERO_TERMINATED);
+    curl_mime_data(part, timeStr.c_str(), CURL_ZERO_TERMINATED);
 
     
     curl_easy_setopt(curl, CURLOPT_MIMEPOST, mime);

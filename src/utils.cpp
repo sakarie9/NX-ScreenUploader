@@ -2,6 +2,7 @@
 
 #include <sys/stat.h>
 
+#include <ctime>
 #include <string>
 #include <string_view>
 
@@ -38,4 +39,32 @@ std::string url_encode(std::string_view value) {
     }
 
     return result;
+}
+
+namespace {
+
+time_t currentTime() noexcept {
+    time_t t;
+    time(&t);
+    return t;
+}
+
+}  // namespace
+
+std::string getCurrentTimeISO8601() {
+    const time_t t = currentTime();
+    char buf[sizeof "2026-05-09T12:00:00Z"];
+    strftime(buf, sizeof buf, "%FT%TZ", gmtime(&t));
+    return std::string(buf);
+}
+
+std::string getCurrentTimeFormatted(const char* fmt) {
+    const time_t t = currentTime();
+    char buf[64];
+    strftime(buf, sizeof buf, fmt, localtime(&t));
+    return std::string(buf);
+}
+
+std::string getCurrentTimeLocal() {
+    return getCurrentTimeFormatted("%Y-%m-%d %H:%M:%S");
 }

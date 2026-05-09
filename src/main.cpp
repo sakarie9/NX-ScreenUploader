@@ -4,8 +4,6 @@
 
 #include <cstring>
 #include <string_view>
-#include <iostream>
-#include "time.h"
 
 #include "album.hpp"
 #include "config.hpp"

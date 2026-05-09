@@ -6,6 +6,7 @@
 #include <utility>
 
 #include "project.h"
+#include "utils.hpp"
 
 #ifdef DEBUG
 #undef DEBUG
@@ -226,7 +227,9 @@ class Logger {
                 break;
         }
 
-        std::snprintf(buffer.data(), buffer.size(), "%s", level_str);
+        std::snprintf(buffer.data(), buffer.size(), "[%s] %s",
+                      getCurrentTimeLocal().c_str(), level_str);
+
         return buffer.data();
     }
 
