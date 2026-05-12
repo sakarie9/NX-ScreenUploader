@@ -385,8 +385,11 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
 
     // Main detection loop (runs forever for sysmodule)
     while (true) {
+        Logger::get().debug() << "Loop iteration" << endl;
+
         // Get the last known item path for comparison
-        std::string_view lastItemPath =
+        // Use string instead of std::string_view to prevent dangling pointer
+        const std::string lastItemPath =
             lastItemResult.has_value() ? lastItemResult.value() : "";
 
         auto newItemsResult = getNewAlbumItems(lastItemPath);
