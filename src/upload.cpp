@@ -205,7 +205,9 @@ bool sendFileToTelegram(std::string_view path, size_t size, bool compression) {
     url += "?chat_id=";
     url += chatId;
 
-    Logger::get().debug() << logPrefix << "URL is " << url << endl;
+    Logger::get().debug() << logPrefix
+                          << "Send method: " << fileTypeInfo.telegramMethod
+                          << endl;
 
     curl_easy_setopt(curl, CURLOPT_POST, 1L);
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
@@ -325,8 +327,7 @@ bool sendFileToNtfy(std::string_view path, size_t size) {
     url += "/";
     url += topic;
 
-    // url will expose bot token in logs, so avoid logging it
-    // Logger::get().debug() << logPrefix << "URL is " << url << endl;
+    Logger::get().debug() << logPrefix << "URL: " << url << endl;
 
     // Build headers
     struct curl_slist* headers = nullptr;
@@ -485,7 +486,7 @@ bool sendFileToDiscord(std::string_view path, size_t size) {
     url += channelId;
     url += "/messages";
 
-    Logger::get().debug() << logPrefix << "URL is " << url << endl;
+    Logger::get().debug() << logPrefix << "URL: " << url << endl;
 
     // Build headers
     struct curl_slist* headers = nullptr;
@@ -609,7 +610,7 @@ bool sendFileToImmich(std::string_view path, size_t size) {
     url += "/api";
     url += "/assets";
 
-    Logger::get().debug() << logPrefix << "URL is " << url << endl;
+    Logger::get().debug() << logPrefix << "URL: " << url << endl;
 
     // Build headers
     std::string authHeader = "x-api-key: ";
