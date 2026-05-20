@@ -3,7 +3,10 @@
 #include <string>
 #include <string_view>
 
-#include "config_defaults.hpp"
+// Include all channel headers via the unified list
+#define CHANNEL_INCLUDES
+#include "channels/channels.inc"
+#undef CHANNEL_INCLUDES
 
 class Config {
    public:
@@ -25,66 +28,10 @@ class Config {
         return m_logLevel;
     }
 
-    // Upload destination toggles
-    [[nodiscard]] constexpr bool telegramEnabled() const noexcept {
-        return m_telegramEnabled;
-    }
-    [[nodiscard]] constexpr bool ntfyEnabled() const noexcept {
-        return m_ntfyEnabled;
-    }
-    [[nodiscard]] constexpr bool discordEnabled() const noexcept {
-        return m_discordEnabled;
-    }
-    [[nodiscard]] constexpr bool immichEnabled() const noexcept {
-        return m_immichEnabled;
-    }
-
-    // Telegram configuration
-    [[nodiscard]] std::string_view getTelegramBotToken() const noexcept;
-    [[nodiscard]] std::string_view getTelegramChatId() const noexcept;
-    [[nodiscard]] std::string_view getTelegramApiUrl() const noexcept;
-    [[nodiscard]] constexpr bool telegramUploadScreenshots() const noexcept {
-        return m_telegramUploadScreenshots;
-    }
-    [[nodiscard]] constexpr bool telegramUploadMovies() const noexcept {
-        return m_telegramUploadMovies;
-    }
-    [[nodiscard]] std::string_view getTelegramUploadMode() const noexcept {
-        return m_telegramUploadMode;
-    }
-
-    // Ntfy configuration
-    [[nodiscard]] std::string_view getNtfyUrl() const noexcept;
-    [[nodiscard]] std::string_view getNtfyTopic() const noexcept;
-    [[nodiscard]] std::string_view getNtfyToken() const noexcept;
-    [[nodiscard]] std::string_view getNtfyPriority() const noexcept;
-    [[nodiscard]] constexpr bool ntfyUploadScreenshots() const noexcept {
-        return m_ntfyUploadScreenshots;
-    }
-    [[nodiscard]] constexpr bool ntfyUploadMovies() const noexcept {
-        return m_ntfyUploadMovies;
-    }
-
-    // Discord configuration
-    [[nodiscard]] std::string_view getDiscordBotToken() const noexcept;
-    [[nodiscard]] std::string_view getDiscordChannelId() const noexcept;
-    [[nodiscard]] std::string_view getDiscordApiUrl() const noexcept;
-    [[nodiscard]] constexpr bool discordUploadScreenshots() const noexcept {
-        return m_discordUploadScreenshots;
-    }
-    [[nodiscard]] constexpr bool discordUploadMovies() const noexcept {
-        return m_discordUploadMovies;
-    }
-
-    // Immich configuration
-    [[nodiscard]] std::string_view getImmichServerUrl() const noexcept;
-    [[nodiscard]] std::string_view getImmichApiKey() const noexcept;
-    [[nodiscard]] constexpr bool immichUploadScreenshots() const noexcept {
-        return m_immichUploadScreenshots;
-    }
-    [[nodiscard]] constexpr bool immichUploadMovies() const noexcept {
-        return m_immichUploadMovies;
-    }
+// Per-channel configuration (defined in channels/channels.inc)
+#define CHANNEL(Ns, M) Ns##Channel::Config M;
+#include "channels/channels.inc"
+#undef CHANNEL
 
     bool error{false};
 
@@ -94,43 +41,7 @@ class Config {
     Config& operator=(const Config&) = delete;
 
     // General settings
-    int m_checkIntervalSeconds{ConfigDefaults::CHECK_INTERVAL_SECONDS};
-    bool m_keepLogs{ConfigDefaults::KEEP_LOGS};
-    std::string m_logLevel{ConfigDefaults::LOG_LEVEL};
-
-    // Upload destination toggles
-    bool m_telegramEnabled{ConfigDefaults::TELEGRAM_ENABLED};
-    bool m_ntfyEnabled{ConfigDefaults::NTFY_ENABLED};
-    bool m_discordEnabled{ConfigDefaults::DISCORD_ENABLED};
-    bool m_immichEnabled{ConfigDefaults::IMMICH_ENABLED};
-
-    // Telegram configuration
-    std::string m_telegramBotToken{ConfigDefaults::TELEGRAM_BOT_TOKEN};
-    std::string m_telegramChatId{ConfigDefaults::TELEGRAM_CHAT_ID};
-    std::string m_telegramApiUrl{ConfigDefaults::TELEGRAM_API_URL};
-    bool m_telegramUploadScreenshots{
-        ConfigDefaults::TELEGRAM_UPLOAD_SCREENSHOTS};
-    bool m_telegramUploadMovies{ConfigDefaults::TELEGRAM_UPLOAD_MOVIES};
-    std::string m_telegramUploadMode{ConfigDefaults::TELEGRAM_UPLOAD_MODE};
-
-    // Ntfy configuration
-    std::string m_ntfyUrl{ConfigDefaults::NTFY_URL};
-    std::string m_ntfyTopic{ConfigDefaults::NTFY_TOPIC};
-    std::string m_ntfyToken{ConfigDefaults::NTFY_TOKEN};
-    std::string m_ntfyPriority{ConfigDefaults::NTFY_PRIORITY};
-    bool m_ntfyUploadScreenshots{ConfigDefaults::NTFY_UPLOAD_SCREENSHOTS};
-    bool m_ntfyUploadMovies{ConfigDefaults::NTFY_UPLOAD_MOVIES};
-
-    // Discord configuration
-    std::string m_discordBotToken{ConfigDefaults::DISCORD_BOT_TOKEN};
-    std::string m_discordChannelId{ConfigDefaults::DISCORD_CHANNEL_ID};
-    std::string m_discordApiUrl{ConfigDefaults::DISCORD_API_URL};
-    bool m_discordUploadScreenshots{ConfigDefaults::DISCORD_UPLOAD_SCREENSHOTS};
-    bool m_discordUploadMovies{ConfigDefaults::DISCORD_UPLOAD_MOVIES};
-
-    // Immich configuration
-    std::string m_immichServerUrl{ConfigDefaults::IMMICH_SERVER_URL};
-    std::string m_immichApiKey{ConfigDefaults::IMMICH_API_KEY};
-    bool m_immichUploadScreenshots{ConfigDefaults::IMMICH_UPLOAD_SCREENSHOTS};
-    bool m_immichUploadMovies{ConfigDefaults::IMMICH_UPLOAD_MOVIES};
+    int m_checkIntervalSeconds{5};
+    bool m_keepLogs{false};
+    std::string m_logLevel{"info"};
 };
