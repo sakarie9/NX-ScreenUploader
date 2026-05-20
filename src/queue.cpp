@@ -15,7 +15,7 @@ Mutex g_queueMutex;
 
 void queueInit() { mutexInit(&g_queueMutex); }
 
-bool queueAdd(const char* filePath, size_t fileSize) {
+bool queueAdd(const char* filePath) {
     mutexLock(&g_queueMutex);
 
     if (g_queueCount >= MAX_QUEUE_SIZE) {
@@ -25,7 +25,6 @@ bool queueAdd(const char* filePath, size_t fileSize) {
 
     std::strncpy(g_uploadQueue[g_queueTail].filePath, filePath, 127);
     g_uploadQueue[g_queueTail].filePath[127] = '\0';
-    g_uploadQueue[g_queueTail].fileSize = fileSize;
     g_queueTail = (g_queueTail + 1) % MAX_QUEUE_SIZE;
     g_queueCount++;
 
@@ -33,7 +32,7 @@ bool queueAdd(const char* filePath, size_t fileSize) {
     return true;
 }
 
-bool queueGet(char* filePath, size_t filePath_size, size_t& fileSize) {
+bool queueGet(char* filePath, size_t filePath_size) {
     mutexLock(&g_queueMutex);
 
     if (g_queueCount == 0) {
@@ -44,7 +43,6 @@ bool queueGet(char* filePath, size_t filePath_size, size_t& fileSize) {
     std::strncpy(filePath, g_uploadQueue[g_queueHead].filePath,
                  filePath_size - 1);
     filePath[filePath_size - 1] = '\0';
-    fileSize = g_uploadQueue[g_queueHead].fileSize;
     g_queueHead = (g_queueHead + 1) % MAX_QUEUE_SIZE;
     g_queueCount--;
 

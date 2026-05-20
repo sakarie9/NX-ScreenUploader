@@ -39,7 +39,7 @@ chat_id = 123456789
 
 ; Upload settings for Telegram
 upload_screenshots = true
-upload_movies = true
+upload_videos = true
 
 ; Upload mode: compressed (default), original, or both
 ; compressed - Upload as photo/video (compressed, faster upload, saves bandwidth)
@@ -70,9 +70,9 @@ topic = your-unique-topic-name
 ; priority = default
 
 ; Upload settings for ntfy.sh
-; Note: ntfy has file size limitations (2 MB on ntfy.sh), movie uploads will likely fail if using the official server
+; Note: ntfy has file size limitations (2 MB on ntfy.sh), video uploads will likely fail if using the official server
 upload_screenshots = true
-upload_movies = false
+upload_videos = false
 
 ; ===== Discord Configuration =====
 [discord]
@@ -85,18 +85,18 @@ channel_id = 1234567890987654321
 ; api_url = https://discord.com/api/v10
 
 ; Upload settings for Discord
-; Movies wont work unless you are a p2w user due to size limitations
+; Videos wont work unless you are a p2w user due to size limitations
 upload_screenshots = true
-upload_movies = false
+upload_videos = false
 
 
 ; ===== Immich Configuration =====
 [immich]
 ; Replace with your instance URL. This URL should NOT include the /api since it gets handled in code
 server_url = http://127.0.0.1:2283
-; The immage API key for your user account. Grab it from http://my.immich.app/user-settings?isOpen=api-keys
+; The Immich API key for your user account. Grab it from http://my.immich.app/user-settings?isOpen=api-keys
 api_key = 123456789
 
 ; Upload settings for Immich
 upload_screenshots = true
-upload_movies = false
+upload_videos = false

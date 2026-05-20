@@ -160,21 +160,12 @@ inline void exponentialBackoff(int retryCount) {
 
 // Process upload queue
 void processUploadQueue() {
-    // Get config values once
-    const std::string_view telegramUploadMode =
-        Config::get().getTelegramUploadMode();
-    const bool telegramEnabled = Config::get().telegramEnabled();
-    const bool ntfyEnabled = Config::get().ntfyEnabled();
-    const bool discordEnabled = Config::get().discordEnabled();
-    const bool immichEnabled = Config::get().immichEnabled();
-
     // Process all tasks in queue until empty
     while (true) {
         char filePath[128];
-        size_t fileSize = 0;
 
         // Try to get a task from the queue
-        if (!queueGet(filePath, sizeof(filePath), fileSize)) {
+        if (!queueGet(filePath, sizeof(filePath))) {
             break;  // Queue empty, exit
         }
 
@@ -182,92 +173,37 @@ void processUploadQueue() {
         const bool isVideo = isVideoFile(filePath);
         const int maxRetries = getMaxRetries(isVideo);
 
-        Logger::get().info() << "Uploading: " << filePath << " (" << fileSize
-                             << " bytes, " << (isVideo ? "video" : "image")
-                             << ", max " << maxRetries << " retries)" << endl;
+        Logger::get().info() << "Uploading: " << filePath << " ("
+                             << (isVideo ? "video" : "image") << ", max "
+                             << maxRetries << " retries)" << endl;
 
         bool anySuccess = false;
 
-        // Upload to Telegram with exponential backoff
-        if (telegramEnabled) {
+        // Retry helper: upload via a channel with exponential backoff
+        auto tryUpload = [&](const char* name, bool enabled, auto send) {
+            if (!enabled) return;
             bool sent = false;
             for (int retry = 0; retry < maxRetries && !sent; ++retry) {
                 if (retry > 0) {
-                    Logger::get().info() << "[Telegram] Retry " << retry << "/"
-                                         << maxRetries << endl;
+                    Logger::get().info() << "[" << name << "] Retry " << retry
+                                         << "/" << maxRetries << endl;
                     exponentialBackoff(retry - 1);
                 }
-                if (telegramUploadMode == UploadMode::Compressed) {
-                    sent = sendFileToTelegram(filePath, fileSize, true);
-                } else if (telegramUploadMode == UploadMode::Original) {
-                    sent = sendFileToTelegram(filePath, fileSize, false);
-                } else if (telegramUploadMode == UploadMode::Both) {
-                    bool c = sendFileToTelegram(filePath, fileSize, true);
-                    bool o = sendFileToTelegram(filePath, fileSize, false);
-                    sent = c || o;
-                }
+                sent = send();
             }
             if (sent)
                 anySuccess = true;
             else
-                Logger::get().error() << "[Telegram] Upload failed after "
+                Logger::get().error() << "[" << name << "] Upload failed after "
                                       << maxRetries << " attempts" << endl;
-        }
+        };
 
-        // Upload to ntfy with exponential backoff
-        if (ntfyEnabled) {
-            bool sent = false;
-            for (int retry = 0; retry < maxRetries && !sent; ++retry) {
-                if (retry > 0) {
-                    Logger::get().info() << "[ntfy] Retry " << retry << "/"
-                                         << maxRetries << endl;
-                    exponentialBackoff(retry - 1);
-                }
-                sent = sendFileToNtfy(filePath, fileSize);
-            }
-            if (sent)
-                anySuccess = true;
-            else
-                Logger::get().error() << "[ntfy] Upload failed after "
-                                      << maxRetries << " attempts" << endl;
-        }
-
-        // Upload to Discord with exponential backoff
-        if (discordEnabled) {
-            bool sent = false;
-            for (int retry = 0; retry < maxRetries && !sent; ++retry) {
-                if (retry > 0) {
-                    Logger::get().info() << "[Discord] Retry " << retry << "/"
-                                         << maxRetries << endl;
-                    exponentialBackoff(retry - 1);
-                }
-                sent = sendFileToDiscord(filePath, fileSize);
-            }
-            if (sent)
-                anySuccess = true;
-            else
-                Logger::get().error() << "[Discord] Upload failed after "
-                                      << maxRetries << " attempts" << endl;
-        }
-
-        // Upload to Immich with exponential backoff
-        if (immichEnabled) {
-            bool sent = false;
-            for (int retry = 0; retry < maxRetries && !sent; ++retry) {
-                if (retry > 0) {
-                    Logger::get().info() << "[Immich] Retry " << retry << "/"
-                                         << maxRetries << endl;
-                    exponentialBackoff(retry - 1);
-                }
-                sent = sendFileToImmich(filePath, fileSize);
-            }
-            if (sent)
-                anySuccess = true;
-
-            else
-                Logger::get().error() << "[Immich] Upload failed after "
-                                      << maxRetries << " attempts" << endl;
-        }
+// Upload via each channel (defined in channels/channels.inc)
+#define CHANNEL(Ns, M)                      \
+    tryUpload(#Ns, Config::get().M.enabled, \
+              [&] { return Ns##Channel::send(filePath); });
+#include "channels/channels.inc"
+#undef CHANNEL
 
         if (!anySuccess) {
             Logger::get().error() << "All uploads failed" << endl;
@@ -350,27 +286,11 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
     {
         auto logger = Logger::get().info();
         logger << "Enabled upload channels: ";
-        if (Config::get().telegramEnabled()) {
-            logger << "[Telegram] ";
-        }
-        if (Config::get().ntfyEnabled()) {
-            logger << "[Ntfy]";
-        }
-        if (Config::get().discordEnabled()) {
-            logger << "[Discord]";
-        }
-        if (Config::get().immichEnabled()) {
-            logger << "[Immich]";
-        }
+#define CHANNEL(Ns, M) \
+    if (Config::get().M.enabled) logger << "[" #Ns "] ";
+#include "channels/channels.inc"
+#undef CHANNEL
         logger << endl;
-    }
-
-    // Determine Telegram upload mode based on configuration
-    const std::string_view telegramUploadMode =
-        Config::get().getTelegramUploadMode();
-    if (Config::get().telegramEnabled()) {
-        Logger::get().info()
-            << "Telegram upload mode: " << telegramUploadMode << endl;
     }
 
     // Get check interval configuration
@@ -404,10 +324,8 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
 
         // Process all new items
         for (const auto& item : newItems) {
-            const size_t fs = filesize(item);
-
-            if (fs > 0) {
-                if (queueAdd(item.c_str(), fs)) {
+            if (filesize(item) > 0) {
+                if (queueAdd(item.c_str())) {
                     Logger::get().info()
                         << "New: " << item << " (queue: " << queueCount() << ")"
                         << endl;

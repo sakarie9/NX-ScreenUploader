@@ -1,8 +1,11 @@
 #include "config.hpp"
 
-#include <minIni.h>
 #include <sys/stat.h>
 
+#include <algorithm>
+#include <string_view>
+
+#include "channels/ini_helpers.hpp"
 #include "logger.hpp"
 #include "project.h"
 
@@ -10,36 +13,19 @@
 static constexpr const char* CONFIG_PATH =
     "sdmc:/config/" APP_TITLE "/config.ini";
 
-// Helper: read a string value with an upper bound of maxlen characters
-static std::string ini_get_string(const char* section, const char* key,
-                                  std::string_view default_value) {
-    char stackBuffer[256];
-    int len = ini_gets(section, key, default_value.data(), stackBuffer,
-                       sizeof(stackBuffer), CONFIG_PATH);
-    if (len > 0) {
-        return std::string(stackBuffer, len);
-    } else {
-        return std::string(default_value);
-    }
-}
-
-// Helper: read a boolean value
-static bool ini_get_bool(const char* section, const char* key,
-                         bool default_value) {
-    return ini_getbool(section, key, default_value ? 1 : 0, CONFIG_PATH) != 0;
-}
-
-// Helper: read an integer value
-static long ini_get_long(const char* section, const char* key,
-                         long default_value) {
-    return ini_getl(section, key, default_value, CONFIG_PATH);
-}
-
 // Helper: check if config file exists
 static bool configFileExists() {
     struct stat buffer;
     return stat(CONFIG_PATH, &buffer) == 0;
 }
+
+// General settings defaults (kept local as they are not channel-specific)
+namespace {
+constexpr int DEFAULT_CHECK_INTERVAL_SECONDS = 5;
+constexpr int CHECK_INTERVAL_MINIMUM = 1;
+constexpr bool DEFAULT_KEEP_LOGS = false;
+constexpr std::string_view DEFAULT_LOG_LEVEL = "info";
+}  // namespace
 
 bool Config::refresh() {
     // Check if config file exists
@@ -49,77 +35,33 @@ bool Config::refresh() {
         return false;
     }
 
-    // Read upload destination toggles
-    m_telegramEnabled =
-        ini_get_bool("general", "telegram", ConfigDefaults::TELEGRAM_ENABLED);
-    m_ntfyEnabled =
-        ini_get_bool("general", "ntfy", ConfigDefaults::NTFY_ENABLED);
-    m_discordEnabled =
-        ini_get_bool("general", "discord", ConfigDefaults::DISCORD_ENABLED);
-    m_immichEnabled =
-        ini_get_bool("general", "immich", ConfigDefaults::IMMICH_ENABLED);
+    // Load and validate each channel's configuration.
+    // Each channel owns its enable state: toggle → load → validate.
+    // If any step fails, the channel is disabled and its config strings are
+    // freed.
+    auto loadChannel = [&](auto& channel, const char* toggleKey) {
+        channel.enabled =
+            IniHelpers::getBool("general", toggleKey, false, CONFIG_PATH);
+        if (channel.enabled) {
+            channel.load(CONFIG_PATH);
+            if (!channel.validate()) {
+                channel = {};  // reset to defaults, frees strings
+            }
+        }
+    };
 
-    // Read Telegram configuration from [telegram] section
-    m_telegramBotToken = ini_get_string("telegram", "bot_token",
-                                        ConfigDefaults::TELEGRAM_BOT_TOKEN);
-    m_telegramChatId =
-        ini_get_string("telegram", "chat_id", ConfigDefaults::TELEGRAM_CHAT_ID);
-    m_telegramApiUrl =
-        ini_get_string("telegram", "api_url", ConfigDefaults::TELEGRAM_API_URL);
-    m_telegramUploadScreenshots =
-        ini_get_bool("telegram", "upload_screenshots",
-                     ConfigDefaults::TELEGRAM_UPLOAD_SCREENSHOTS);
-    m_telegramUploadMovies = ini_get_bool(
-        "telegram", "upload_movies", ConfigDefaults::TELEGRAM_UPLOAD_MOVIES);
-
-    // Read Telegram upload mode: compressed, original, or both
-    // Stored directly as string to avoid unnecessary conversions
-    m_telegramUploadMode = ini_get_string("telegram", "upload_mode",
-                                          ConfigDefaults::TELEGRAM_UPLOAD_MODE);
-
-    // Read Ntfy configuration from [ntfy] section
-    m_ntfyUrl = ini_get_string("ntfy", "url", ConfigDefaults::NTFY_URL);
-    m_ntfyTopic = ini_get_string("ntfy", "topic", ConfigDefaults::NTFY_TOPIC);
-    m_ntfyToken = ini_get_string("ntfy", "token", ConfigDefaults::NTFY_TOKEN);
-    m_ntfyPriority =
-        ini_get_string("ntfy", "priority", ConfigDefaults::NTFY_PRIORITY);
-    m_ntfyUploadScreenshots = ini_get_bool(
-        "ntfy", "upload_screenshots", ConfigDefaults::NTFY_UPLOAD_SCREENSHOTS);
-    m_ntfyUploadMovies = ini_get_bool("ntfy", "upload_movies",
-                                      ConfigDefaults::NTFY_UPLOAD_MOVIES);
-
-    // Read Discord configuration from [discord] section
-    m_discordBotToken = ini_get_string("discord", "bot_token",
-                                       ConfigDefaults::DISCORD_BOT_TOKEN);
-    m_discordChannelId = ini_get_string("discord", "channel_id",
-                                        ConfigDefaults::DISCORD_CHANNEL_ID);
-    m_discordApiUrl =
-        ini_get_string("discord", "api_url", ConfigDefaults::DISCORD_API_URL);
-    m_discordUploadScreenshots =
-        ini_get_bool("discord", "upload_screenshots",
-                     ConfigDefaults::DISCORD_UPLOAD_SCREENSHOTS);
-    m_discordUploadMovies = ini_get_bool("discord", "upload_movies",
-                                         ConfigDefaults::DISCORD_UPLOAD_MOVIES);
-
-    // Read Immich configuration from [immich] section
-    m_immichServerUrl = ini_get_string("immich", "server_url",
-                                       ConfigDefaults::IMMICH_SERVER_URL);
-    m_immichApiKey =
-        ini_get_string("immich", "api_key", ConfigDefaults::IMMICH_API_KEY);
-    m_immichUploadScreenshots =
-        ini_get_bool("immich", "upload_screenshots",
-                     ConfigDefaults::IMMICH_UPLOAD_SCREENSHOTS);
-    m_immichUploadMovies = ini_get_bool("immich", "upload_movies",
-                                        ConfigDefaults::IMMICH_UPLOAD_MOVIES);
+// Load each channel via the unified list (channels/channels.inc)
+#define CHANNEL(Ns, M) loadChannel(M, #M);
+#include "channels/channels.inc"
+#undef CHANNEL
 
     // Read general settings
-    m_keepLogs =
-        ini_get_bool("general", "keep_logs", ConfigDefaults::KEEP_LOGS);
-    m_logLevel =
-        ini_get_string("general", "log_level", ConfigDefaults::LOG_LEVEL);
+    m_keepLogs = IniHelpers::getBool("general", "keep_logs", DEFAULT_KEEP_LOGS,
+                                     CONFIG_PATH);
+    m_logLevel = IniHelpers::getString("general", "log_level",
+                                       DEFAULT_LOG_LEVEL, CONFIG_PATH);
 
     // Validate log level
-    // Valid values: debug, info, warn, error
     if (m_logLevel != "debug" && m_logLevel != "info" && m_logLevel != "warn" &&
         m_logLevel != "error") {
         Logger::get().warn()
@@ -127,118 +69,25 @@ bool Config::refresh() {
             << "' (valid levels: debug, info, warn, error). Resetting to "
                "default (info)."
             << endl;
-        m_logLevel = ConfigDefaults::LOG_LEVEL;
+        m_logLevel = std::string(DEFAULT_LOG_LEVEL);
     }
 
-    // Read check interval (seconds), with minimum enforcement using std::max
-    m_checkIntervalSeconds = std::max(
-        static_cast<int>(ini_get_long("general", "check_interval",
-                                      ConfigDefaults::CHECK_INTERVAL_SECONDS)),
-        ConfigDefaults::CHECK_INTERVAL_MINIMUM);
-
-    // ========================================================================
-    // Validate configuration and disable invalid channels
-    // ========================================================================
-
-    // Validate Telegram upload mode
-    if (!ConfigDefaults::isUploadModeValid(m_telegramUploadMode)) {
-        Logger::get().warn()
-            << "Invalid Telegram upload mode: '" << m_telegramUploadMode
-            << "' (valid modes: compressed, original, both). Resetting to "
-               "default."
-            << endl;
-        m_telegramUploadMode = ConfigDefaults::TELEGRAM_UPLOAD_MODE;
-    }
-
-    // Validate Telegram configuration
-    if (m_telegramEnabled && !ConfigDefaults::isTelegramValid(
-                                 m_telegramBotToken, m_telegramChatId)) {
-        Logger::get().warn()
-            << "Telegram channel disabled: Invalid or missing configuration "
-               "(bot_token and/or chat_id are not set or are set to "
-               "'undefined')"
-            << endl;
-        m_telegramEnabled = false;
-    }
-
-    // Validate Ntfy configuration
-    if (m_ntfyEnabled && !ConfigDefaults::isNtfyValid(m_ntfyTopic)) {
-        Logger::get().warn()
-            << "Ntfy channel disabled: Invalid or missing configuration (topic "
-               "is not set)"
-            << endl;
-        m_ntfyEnabled = false;
-    }
-
-    // Validate Discord configuration
-    if (m_discordEnabled && !ConfigDefaults::isDiscordValid(
-                                m_discordBotToken, m_discordChannelId)) {
-        Logger::get().warn()
-            << "discord channel disabled: Invalid or missing configuration "
-               "(bot_token and/or channel_id are not set or are set to "
-               "'undefined')"
-            << endl;
-        m_discordEnabled = false;
-    }
-
-    // Validate Immich configuration
-    if (m_immichEnabled &&
-        !ConfigDefaults::isImmichValid(m_immichServerUrl, m_immichApiKey)) {
-        Logger::get().warn()
-            << "Immich disabled: Invalid or missing configuration"
-               "(server_url and/or api_key are not set or are set to "
-               "'undefined')"
-            << endl;
-        m_immichEnabled = false;
-    }
+    // Read check interval with minimum enforcement
+    m_checkIntervalSeconds =
+        std::max(static_cast<int>(IniHelpers::getLong(
+                     "general", "check_interval",
+                     DEFAULT_CHECK_INTERVAL_SECONDS, CONFIG_PATH)),
+                 CHECK_INTERVAL_MINIMUM);
 
     // Check if at least one channel is enabled
-    if (!m_telegramEnabled && !m_ntfyEnabled && !m_discordEnabled &&
-        !m_immichEnabled) {
-        return false;  // Indicate failure - no valid upload channel available
+    {
+        bool anyEnabled = false;
+#define CHANNEL(Ns, M) \
+    if (M.enabled) anyEnabled = true;
+#include "channels/channels.inc"
+#undef CHANNEL
+        if (!anyEnabled) return false;
     }
 
     return true;
-}
-
-std::string_view Config::getTelegramBotToken() const noexcept {
-    return m_telegramBotToken;
-}
-
-std::string_view Config::getTelegramChatId() const noexcept {
-    return m_telegramChatId;
-}
-
-std::string_view Config::getTelegramApiUrl() const noexcept {
-    return m_telegramApiUrl;
-}
-
-std::string_view Config::getDiscordBotToken() const noexcept {
-    return m_discordBotToken;
-}
-
-std::string_view Config::getDiscordChannelId() const noexcept {
-    return m_discordChannelId;
-}
-
-std::string_view Config::getDiscordApiUrl() const noexcept {
-    return m_discordApiUrl;
-}
-
-std::string_view Config::getImmichServerUrl() const noexcept {
-    return m_immichServerUrl;
-}
-
-std::string_view Config::getImmichApiKey() const noexcept {
-    return m_immichApiKey;
-}
-
-std::string_view Config::getNtfyUrl() const noexcept { return m_ntfyUrl; }
-
-std::string_view Config::getNtfyTopic() const noexcept { return m_ntfyTopic; }
-
-std::string_view Config::getNtfyToken() const noexcept { return m_ntfyToken; }
-
-std::string_view Config::getNtfyPriority() const noexcept {
-    return m_ntfyPriority;
 }
