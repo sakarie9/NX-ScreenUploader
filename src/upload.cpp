@@ -61,8 +61,8 @@ void setCurlTimeouts(CURL* curl, bool isVideo) {
 // File upload validation
 ValidationResult validateUploadFile(std::string_view path,
                                     std::string_view logPrefix,
-                                    std::string_view& tid, bool& isMovie,
-                                    bool uploadScreenshots, bool uploadMovies) {
+                                    std::string_view& tid, bool& isVideo,
+                                    bool uploadScreenshots, bool uploadVideos) {
     // Extract Title ID (32 chars from the last 36 chars of the path)
     if (path.length() < 36) {
         Logger::get().error() << logPrefix << "Invalid path length" << endl;
@@ -72,10 +72,10 @@ ValidationResult validateUploadFile(std::string_view path,
     tid = path.substr(path.length() - 36, 32);
     Logger::get().debug() << logPrefix << "Title ID: " << tid << endl;
 
-    isMovie = path.back() == '4';
+    isVideo = path.back() == '4';
     // Check target-specific config to determine whether this type is allowed to
     // upload
-    const bool shouldUpload = isMovie ? uploadMovies : uploadScreenshots;
+    const bool shouldUpload = isVideo ? uploadVideos : uploadScreenshots;
     if (!shouldUpload) {
         Logger::get().info()
             << logPrefix << "Skipping upload for " << path << endl;

@@ -11,7 +11,7 @@ constexpr std::string_view BOT_TOKEN = "";
 constexpr std::string_view CHAT_ID = "";
 constexpr std::string_view API_URL = "https://api.telegram.org";
 constexpr bool UPLOAD_SCREENSHOTS = true;
-constexpr bool UPLOAD_MOVIES = true;
+constexpr bool UPLOAD_VIDEOS = true;
 constexpr std::string_view UPLOAD_MODE = "compressed";
 }  // namespace Defaults
 
@@ -26,7 +26,7 @@ struct Config {
     std::string chatId{Defaults::CHAT_ID};
     std::string apiUrl{Defaults::API_URL};
     bool uploadScreenshots{Defaults::UPLOAD_SCREENSHOTS};
-    bool uploadMovies{Defaults::UPLOAD_MOVIES};
+    bool uploadVideos{Defaults::UPLOAD_VIDEOS};
     std::string uploadMode{Defaults::UPLOAD_MODE};
 
     /**

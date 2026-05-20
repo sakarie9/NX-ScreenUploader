@@ -48,8 +48,8 @@ bool TelegramChannel::Config::load(const char* configPath) {
     uploadScreenshots =
         IniHelpers::getBool(SECTION, "upload_screenshots",
                             Defaults::UPLOAD_SCREENSHOTS, configPath);
-    uploadMovies = IniHelpers::getBool(SECTION, "upload_movies",
-                                       Defaults::UPLOAD_MOVIES, configPath);
+    uploadVideos = IniHelpers::getBool(SECTION, "upload_videos",
+                                       Defaults::UPLOAD_VIDEOS, configPath);
     uploadMode = IniHelpers::getString(SECTION, "upload_mode",
                                        Defaults::UPLOAD_MODE, configPath);
 
@@ -85,7 +85,7 @@ bool TelegramChannel::send(std::string_view path) {
     constexpr std::string_view logPrefix = "[Telegram] ";
     const auto& uploadMode = ::Config::get().telegram.uploadMode;
     std::string_view tid;
-    bool isMovie;
+    bool isVideo;
 
     const size_t size = filesize(path);
     Logger::get().info() << logPrefix << "Starting upload - File: " << path
@@ -94,9 +94,9 @@ bool TelegramChannel::send(std::string_view path) {
 
     // Validate file and check if upload is needed
     const auto validationResult =
-        validateUploadFile(path, logPrefix, tid, isMovie,
+        validateUploadFile(path, logPrefix, tid, isVideo,
                            ::Config::get().telegram.uploadScreenshots,
-                           ::Config::get().telegram.uploadMovies);
+                           ::Config::get().telegram.uploadVideos);
     if (validationResult == ValidationResult::Error) {
         return false;
     }
@@ -139,7 +139,7 @@ bool TelegramChannel::send(std::string_view path) {
                      fileTypeInfo.contentType.data(), CURLFORM_END);
 
         // Add video dimensions support for Telegram video uploads
-        if (isMovie) {
+        if (isVideo) {
             curl_formadd(&formpost, &lastptr, CURLFORM_COPYNAME, "width",
                          CURLFORM_COPYCONTENTS, "1280", CURLFORM_END);
             curl_formadd(&formpost, &lastptr, CURLFORM_COPYNAME, "height",
@@ -182,19 +182,19 @@ bool TelegramChannel::send(std::string_view path) {
         curl_easy_setopt(curl, CURLOPT_BUFFERSIZE, NX_CURL_BUFFERSIZE);
         curl_easy_setopt(curl, CURLOPT_UPLOAD_BUFFERSIZE,
                          NX_CURL_UPLOAD_BUFFERSIZE);
-        setCurlTimeouts(curl, isMovie);
+        setCurlTimeouts(curl, isVideo);
 
         Logger::get().debug()
             << logPrefix
-            << "CURL config - File type: " << (isMovie ? "video" : "image")
+            << "CURL config - File type: " << (isVideo ? "video" : "image")
             << ", Connect timeout: "
-            << (isMovie ? VideoTimeouts::connectTimeout
+            << (isVideo ? VideoTimeouts::connectTimeout
                         : ImageTimeouts::connectTimeout)
             << "s, Idle timeout: "
-            << (isMovie ? VideoTimeouts::idleTimeout
+            << (isVideo ? VideoTimeouts::idleTimeout
                         : ImageTimeouts::idleTimeout)
             << "s, Total timeout: "
-            << (isMovie ? VideoTimeouts::totalTimeout
+            << (isVideo ? VideoTimeouts::totalTimeout
                         : ImageTimeouts::totalTimeout)
             << "s" << endl;
         Logger::get().info()

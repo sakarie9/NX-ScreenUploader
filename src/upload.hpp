@@ -53,8 +53,8 @@ void setCurlTimeouts(CURL* curl, bool isVideo);
 /// Common validation logic for file uploads
 ValidationResult validateUploadFile(std::string_view path,
                                     std::string_view logPrefix,
-                                    std::string_view& tid, bool& isMovie,
-                                    bool uploadScreenshots, bool uploadMovies);
+                                    std::string_view& tid, bool& isVideo,
+                                    bool uploadScreenshots, bool uploadVideos);
 
 // File type detection utilities
 

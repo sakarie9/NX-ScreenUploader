@@ -11,7 +11,7 @@ constexpr std::string_view BOT_TOKEN = "";
 constexpr std::string_view CHANNEL_ID = "";
 constexpr std::string_view API_URL = "https://discord.com/api/v10";
 constexpr bool UPLOAD_SCREENSHOTS = true;
-constexpr bool UPLOAD_MOVIES = false;
+constexpr bool UPLOAD_VIDEOS = false;
 }  // namespace Defaults
 
 // INI section name
@@ -25,7 +25,7 @@ struct Config {
     std::string channelId{Defaults::CHANNEL_ID};
     std::string apiUrl{Defaults::API_URL};
     bool uploadScreenshots{Defaults::UPLOAD_SCREENSHOTS};
-    bool uploadMovies{Defaults::UPLOAD_MOVIES};
+    bool uploadVideos{Defaults::UPLOAD_VIDEOS};
 
     /**
      * Load configuration from INI file

@@ -12,7 +12,7 @@ constexpr std::string_view TOPIC = "";
 constexpr std::string_view TOKEN = "";
 constexpr std::string_view PRIORITY = "default";
 constexpr bool UPLOAD_SCREENSHOTS = true;
-constexpr bool UPLOAD_MOVIES = false;
+constexpr bool UPLOAD_VIDEOS = false;
 }  // namespace Defaults
 
 // INI section name
@@ -27,7 +27,7 @@ struct Config {
     std::string token{Defaults::TOKEN};
     std::string priority{Defaults::PRIORITY};
     bool uploadScreenshots{Defaults::UPLOAD_SCREENSHOTS};
-    bool uploadMovies{Defaults::UPLOAD_MOVIES};
+    bool uploadVideos{Defaults::UPLOAD_VIDEOS};
 
     /**
      * Load configuration from INI file

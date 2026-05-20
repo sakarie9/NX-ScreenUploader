@@ -24,8 +24,8 @@ bool DiscordChannel::Config::load(const char* configPath) {
     uploadScreenshots =
         IniHelpers::getBool(SECTION, "upload_screenshots",
                             Defaults::UPLOAD_SCREENSHOTS, configPath);
-    uploadMovies = IniHelpers::getBool(SECTION, "upload_movies",
-                                       Defaults::UPLOAD_MOVIES, configPath);
+    uploadVideos = IniHelpers::getBool(SECTION, "upload_videos",
+                                       Defaults::UPLOAD_VIDEOS, configPath);
 
     return true;
 }
@@ -44,7 +44,7 @@ bool DiscordChannel::Config::validate() {
 bool DiscordChannel::send(std::string_view path) {
     constexpr std::string_view logPrefix = "[Discord] ";
     std::string_view tid;
-    bool isMovie;
+    bool isVideo;
 
     const size_t size = filesize(path);
     Logger::get().info() << logPrefix << "Starting upload - File: " << path
@@ -53,9 +53,9 @@ bool DiscordChannel::send(std::string_view path) {
 
     // Validate file and check if upload is needed
     const auto validationResult =
-        validateUploadFile(path, logPrefix, tid, isMovie,
+        validateUploadFile(path, logPrefix, tid, isVideo,
                            ::Config::get().discord.uploadScreenshots,
-                           ::Config::get().discord.uploadMovies);
+                           ::Config::get().discord.uploadVideos);
     if (validationResult == ValidationResult::Error) {
         return false;
     }
@@ -122,18 +122,18 @@ bool DiscordChannel::send(std::string_view path) {
     curl_easy_setopt(curl, CURLOPT_BUFFERSIZE, NX_CURL_BUFFERSIZE);
     curl_easy_setopt(curl, CURLOPT_UPLOAD_BUFFERSIZE,
                      NX_CURL_UPLOAD_BUFFERSIZE);
-    setCurlTimeouts(curl, isMovie);
+    setCurlTimeouts(curl, isVideo);
 
     Logger::get().debug() << logPrefix << "CURL config - File type: "
-                          << (isMovie ? "video" : "image")
+                          << (isVideo ? "video" : "image")
                           << ", Connect timeout: "
-                          << (isMovie ? VideoTimeouts::connectTimeout
+                          << (isVideo ? VideoTimeouts::connectTimeout
                                       : ImageTimeouts::connectTimeout)
                           << "s, Idle timeout: "
-                          << (isMovie ? VideoTimeouts::idleTimeout
+                          << (isVideo ? VideoTimeouts::idleTimeout
                                       : ImageTimeouts::idleTimeout)
                           << "s, Total timeout: "
-                          << (isMovie ? VideoTimeouts::totalTimeout
+                          << (isVideo ? VideoTimeouts::totalTimeout
                                       : ImageTimeouts::totalTimeout)
                           << "s" << endl;
     Logger::get().info() << logPrefix << "Starting CURL transfer..." << endl;

@@ -10,7 +10,7 @@ namespace Defaults {
 constexpr std::string_view SERVER_URL = "";
 constexpr std::string_view API_KEY = "";
 constexpr bool UPLOAD_SCREENSHOTS = true;
-constexpr bool UPLOAD_MOVIES = false;
+constexpr bool UPLOAD_VIDEOS = false;
 }  // namespace Defaults
 
 // INI section name
@@ -23,7 +23,7 @@ struct Config {
     std::string serverUrl{Defaults::SERVER_URL};
     std::string apiKey{Defaults::API_KEY};
     bool uploadScreenshots{Defaults::UPLOAD_SCREENSHOTS};
-    bool uploadMovies{Defaults::UPLOAD_MOVIES};
+    bool uploadVideos{Defaults::UPLOAD_VIDEOS};
 
     /**
      * Load configuration from INI file
