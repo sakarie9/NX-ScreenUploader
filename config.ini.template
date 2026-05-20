@@ -94,7 +94,7 @@ upload_videos = false
 [immich]
 ; Replace with your instance URL. This URL should NOT include the /api since it gets handled in code
 server_url = http://127.0.0.1:2283
-; The immage API key for your user account. Grab it from http://my.immich.app/user-settings?isOpen=api-keys
+; The Immich API key for your user account. Grab it from http://my.immich.app/user-settings?isOpen=api-keys
 api_key = 123456789
 
 ; Upload settings for Immich
