@@ -28,6 +28,10 @@ constexpr FileTypeInfo getFileTypeInfo(std::string_view extension,
         return compression
                    ? FileTypeInfo{"image/jpeg", "photo", "sendPhoto"}
                    : FileTypeInfo{"image/jpeg", "document", "sendDocument"};
+    } else if (extension == ".png") {
+        return compression
+                   ? FileTypeInfo{"image/png", "photo", "sendPhoto"}
+                   : FileTypeInfo{"image/png", "document", "sendDocument"};
     } else if (extension == ".mp4") {
         return compression
                    ? FileTypeInfo{"video/mp4", "video", "sendVideo"}

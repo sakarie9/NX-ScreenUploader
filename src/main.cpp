@@ -2,8 +2,11 @@
 #include <dirent.h>
 #include <switch.h>
 
+#include <algorithm>
 #include <cstring>
+#include <string>
 #include <string_view>
+#include <vector>
 
 #include "album.hpp"
 #include "config.hpp"
@@ -271,15 +274,33 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
     Logger::get().info() << "Mounted " << (storage ? "SD" : "NAND")
                          << " storage" << endl;
 
-    // Get the initial last file (for comparison)
+    // Get the initial last file for the standard album (for comparison)
     // If album is not ready (Err), we'll use the first valid item later
-    auto lastItemResult = getLastAlbumItem();
-    if (lastItemResult.has_value()) {
+    auto lastAlbumResult = getLastAlbumItem();
+    if (lastAlbumResult.has_value()) {
         Logger::get().info()
-            << "Current last item: " << lastItemResult.value() << endl;
+            << "Current last album item: " << lastAlbumResult.value() << endl;
     } else {
         Logger::get().info()
-            << "Album not ready: " << lastItemResult.error() << endl;
+            << "Album not ready: " << lastAlbumResult.error() << endl;
+    }
+
+    // PNGShot compatibility: also track PNGShot directory
+    const bool pngshotEnabled = Config::get().pngshotEnabled();
+    auto lastPNGShotResult =
+        std::expected<std::string, std::string>(std::unexpected(""));
+    if (pngshotEnabled) {
+        Logger::get().info() << "PNGShot compatibility mode enabled" << endl;
+        lastPNGShotResult = getLastAlbumItem("img:/PNGs/");
+        if (lastPNGShotResult.has_value()) {
+            Logger::get().info()
+                << "Current last PNGShot item: " << lastPNGShotResult.value()
+                << endl;
+        } else {
+            Logger::get().info()
+                << "PNGShot album not ready: " << lastPNGShotResult.error()
+                << endl;
+        }
     }
 
     // Log enabled upload channels
@@ -307,37 +328,57 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
     while (true) {
         Logger::get().debug() << "Loop iteration" << endl;
 
-        // Get the last known item path for comparison
-        // Use string instead of std::string_view to prevent dangling pointer
-        const std::string lastItemPath =
-            lastItemResult.has_value() ? lastItemResult.value() : "";
+        std::vector<std::string> allItems;
 
-        auto newItemsResult = getNewAlbumItems(lastItemPath);
-
-        // Skip if error (album not ready)
-        if (!newItemsResult.has_value()) {
-            svcSleepThread(sleepDuration);
-            continue;
+        // 1. Collect from standard album (img:/)
+        const std::string lastAlbumPath =
+            lastAlbumResult.has_value() ? lastAlbumResult.value() : "";
+        auto albumItems = getNewAlbumItems(lastAlbumPath);
+        if (albumItems.has_value()) {
+            for (const auto& item : albumItems.value()) {
+                // When pngshot is enabled, only collect videos from img:/
+                if (!pngshotEnabled || isVideoFile(item)) {
+                    allItems.push_back(item);
+                }
+            }
         }
 
-        const auto& newItems = newItemsResult.value();
+        // 2. Collect from PNGShot directory (img:/PNGs/)
+        if (pngshotEnabled) {
+            const std::string lastPNGShotPath =
+                lastPNGShotResult.has_value() ? lastPNGShotResult.value() : "";
+            auto pngItems = getNewAlbumItems(lastPNGShotPath, "img:/PNGs/");
+            if (pngItems.has_value()) {
+                for (const auto& item : pngItems.value()) {
+                    allItems.push_back(item);
+                }
+            }
+        }
 
-        // Process all new items
-        for (const auto& item : newItems) {
-            if (filesize(item) > 0) {
-                if (queueAdd(item.c_str())) {
-                    Logger::get().info()
-                        << "New: " << item << " (queue: " << queueCount() << ")"
-                        << endl;
+        // 3. Sort merged results chronologically
+        if (!allItems.empty()) {
+            std::sort(allItems.begin(), allItems.end());
 
-                    // Update lastItemResult only after successful queue
-                    // addition
-                    lastItemResult = item;
-                } else {
-                    Logger::get().error()
-                        << "Queue full, skipping: " << item << endl;
-                    // Do not update lastItemResult - we'll retry this item on
-                    // next iteration
+            // Process all new items
+            for (const auto& item : allItems) {
+                if (filesize(item) > 0) {
+                    if (queueAdd(item.c_str())) {
+                        Logger::get().info()
+                            << "New: " << item << " (queue: " << queueCount()
+                            << ")" << endl;
+
+                        // Update the appropriate tracker based on path prefix
+                        if (pngshotEnabled && item.starts_with("img:/PNGs/")) {
+                            lastPNGShotResult = item;
+                        } else {
+                            lastAlbumResult = item;
+                        }
+                    } else {
+                        Logger::get().error()
+                            << "Queue full, skipping: " << item << endl;
+                        // Do not update tracker - we'll retry this item on
+                        // next iteration
+                    }
                 }
             }
         }
