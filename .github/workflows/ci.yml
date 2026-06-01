@@ -19,8 +19,11 @@ jobs:
             - name: Build
               run: bash scripts/build.sh
 
+            - name: Create release package
+              run: bash scripts/release.sh
+
             - name: Upload artifacts
-              uses: actions/upload-artifact@v6
+              uses: actions/upload-artifact@v7
               with:
-                  name: NX-ScreenUploader
-                  path: build/*.nsp
+                  path: build/NX-ScreenUploader.zip
+                  archive: false
