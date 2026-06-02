@@ -62,7 +62,7 @@ Discord 的配置比 Telegram 和 ntfy.sh 稍微复杂一些。
 
 然后获取你想发送截图的频道的 `Channel ID`。你可以在 Discord 设置中启用开发者模式，然后右键单击所需频道并选择"复制频道 ID"。
 
-### Immich
+#### Immich
 
 要使用 Immich，你必须有一个自托管的 Immich 实例并创建一个 API 令牌用于认证。从 <https://my.immich.app/user-settings?isOpen=api-keys> 获取。
 

@@ -62,7 +62,7 @@ Follow [Creating a Bot Account](https://discordpy.readthedocs.io/en/stable/disco
 
 Then get the `Channel ID` of the channel where you want the screenshots to be sent. You can do this by enabling Developer Mode in Discord settings, then right-clicking on the desired channel and selecting "Copy Channel ID".
 
-### Immich
+#### Immich
 
 To use Immich, you must have a self-hosted Immich instance and create an API token for authentication. Grab it from <https://my.immich.app/user-settings?isOpen=api-keys>
 
