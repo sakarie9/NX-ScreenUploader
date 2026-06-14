@@ -27,6 +27,9 @@ class Config {
     [[nodiscard]] std::string_view getLogLevel() const noexcept {
         return m_logLevel;
     }
+    [[nodiscard]] constexpr bool pngshotEnabled() const noexcept {
+        return m_pngshotEnabled;
+    }
 
 // Per-channel configuration (defined in channels/channels.inc)
 #define CHANNEL(Ns, M) Ns##Channel::Config M;
@@ -44,4 +47,5 @@ class Config {
     int m_checkIntervalSeconds{5};
     bool m_keepLogs{false};
     std::string m_logLevel{"info"};
+    bool m_pngshotEnabled{false};
 };

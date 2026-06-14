@@ -16,7 +16,6 @@
 namespace fs = std::filesystem;
 
 namespace {
-constexpr std::string_view ALBUM_PATH = "img:/";
 
 constexpr bool isDigitsOnly(std::string_view str) noexcept {
     return std::ranges::all_of(str,
@@ -151,15 +150,17 @@ void collectFromYearDir(const fs::path& yearDir, std::string_view lastItem,
 
 }  // namespace
 
-std::expected<std::string, std::string> getLastAlbumItem() {
+std::expected<std::string, std::string> getLastAlbumItem(
+    std::string_view basePath) {
 #ifdef ENABLE_PROFILING
     const auto startTime = std::chrono::high_resolution_clock::now();
 #endif
 
     // 1. Find Year (Length 4, Directory)
-    const fs::path year = findMaxDir<4>(ALBUM_PATH);
+    const fs::path year = findMaxDir<4>(basePath);
     if (year.empty())
-        return std::unexpected("No valid year directories in img:/");
+        return std::unexpected(std::string("No valid year directories in ") +
+                               std::string(basePath));
 
     // 2. Find Month (Length 2, Directory)
     const fs::path month = findMaxDir<2>(year);
@@ -189,8 +190,12 @@ std::expected<std::string, std::string> getLastAlbumItem() {
     return file.string();
 }
 
+std::expected<std::string, std::string> getLastAlbumItem() {
+    return getLastAlbumItem("img:/");
+}
+
 std::expected<std::vector<std::string>, std::string> getNewAlbumItems(
-    std::string_view lastItem) {
+    std::string_view lastItem, std::string_view basePath) {
 #ifdef ENABLE_PROFILING
     const auto startTime = std::chrono::high_resolution_clock::now();
 #endif
@@ -199,7 +204,7 @@ std::expected<std::vector<std::string>, std::string> getNewAlbumItems(
 
     // If lastItem is empty, just get the latest item
     if (lastItem.empty()) {
-        auto result = getLastAlbumItem();
+        auto result = getLastAlbumItem(basePath);
         if (result.has_value()) {
             newItems.push_back(std::move(result.value()));
         }
@@ -207,18 +212,18 @@ std::expected<std::vector<std::string>, std::string> getNewAlbumItems(
     }
 
     // Parse lastItem path to extract year/month/day components
-    // Format: img:/YYYY/MM/DD/filename
+    // Format depends on basePath (e.g. img:/YYYY/MM/DD/filename
+    // or img:/PNGs/YYYY/MM/DD/filename)
     // We need to find files newer than lastItem
 
-    // Extract components from lastItem path
-    // Expected format: img:/2024/01/15/filename.jpg
     std::string lastItemStr(lastItem);
 
-    // Find year/month/day from the path
-    size_t pos = 0;
-    if (lastItemStr.starts_with("img:/")) {
-        pos = 5;  // Skip "img:/"
-    }
+    // Skip the basePath prefix to find the year position
+    const size_t prefixLen = basePath.size();
+    if (lastItemStr.length() <= prefixLen)
+        return std::unexpected("Invalid path format: path too short");
+
+    size_t pos = prefixLen;
 
     // Extract year (4 digits)
     if (pos + 4 > lastItemStr.length())
@@ -239,7 +244,7 @@ std::expected<std::vector<std::string>, std::string> getNewAlbumItems(
 
     // Collect all files newer than lastItem
     std::vector<fs::path> years;
-    findDirsGreaterOrEqual<4>(ALBUM_PATH, minYear, years);
+    findDirsGreaterOrEqual<4>(basePath, minYear, years);
 
     for (const auto& yearDir : years) {
         auto yearName = yearDir.filename().string();
@@ -267,4 +272,9 @@ std::expected<std::vector<std::string>, std::string> getNewAlbumItems(
 #endif
 
     return newItems;
+}
+
+std::expected<std::vector<std::string>, std::string> getNewAlbumItems(
+    std::string_view lastItem) {
+    return getNewAlbumItems(lastItem, "img:/");
 }

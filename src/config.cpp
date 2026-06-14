@@ -61,6 +61,10 @@ bool Config::refresh() {
     m_logLevel = IniHelpers::getString("general", "log_level",
                                        DEFAULT_LOG_LEVEL, CONFIG_PATH);
 
+    // Read PNGShot compatibility mode
+    m_pngshotEnabled =
+        IniHelpers::getBool("general", "pngshot", false, CONFIG_PATH);
+
     // Validate log level
     if (m_logLevel != "debug" && m_logLevel != "info" && m_logLevel != "warn" &&
         m_logLevel != "error") {

@@ -25,6 +25,13 @@ immich = false
 ; error - Show only error messages
 ; log_level = info
 
+; PNGShot compatibility mode (true/false, default: false)
+; https://github.com/J-D-K/PNGShot
+; When enabled, also monitors img:/PNGs/ for PNG screenshots produced by the PNGShot module.
+; The standard album (img:/) will only collect video (.mp4) files in this mode.
+; ONLY set pngshot=true if you are using PNGShot.
+; pngshot = false
+
 ; ===== Telegram Configuration =====
 [telegram]
 ; replace with your own token, the value below is an example and will not work
