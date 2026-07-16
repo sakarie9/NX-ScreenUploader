@@ -26,16 +26,29 @@ include(utils)
 include(FetchContent)
 
 find_package(LIBNX REQUIRED)
-find_package(CURL REQUIRED)
 find_package(ZLIB REQUIRED)
 if (NOT LIBNX_FOUND)
     cmake_panic("Unable to detect libnx on this system.")
 endif ()
-if (NOT CURL_FOUND)
-    cmake_panic("Unable to detect libcurl on this system.")
-endif ()
 if (NOT ZLIB_FOUND)
     cmake_panic("Unable to detect zlib on this system.")
+endif ()
+
+# Build a project-local curl with unnecessary protocols disabled.
+# This reduces binary size and works in CI without pre-installing
+# a custom libcurl into the devkitPro portlibs.
+option(BUILD_CURL_LOCAL
+    "Build project-local libcurl (HTTP/HTTPS only)."
+    ON)
+
+if (BUILD_CURL_LOCAL)
+    cmake_info("Building local libcurl (protocols: http/https only)")
+    include(build-switch-curl)
+else ()
+    find_package(CURL REQUIRED)
+    if (NOT CURL_FOUND)
+        cmake_panic("Unable to detect libcurl on this system.")
+    endif ()
 endif ()
 
 include_directories(${PROJECT_BINARY_DIR})
@@ -95,7 +108,7 @@ cmake_info("Building ${APP_TITLE} version ${APP_VERSION}.")
 
 include(src/CMakeLists.txt)
 
-target_link_libraries(${HOMEBREW_APP}.elf ${CURL_LIBRARIES} ${ZLIB_LIBRARIES} switch::libnx minIni)
+target_link_libraries(${HOMEBREW_APP}.elf CURL::libcurl ${ZLIB_LIBRARIES} switch::libnx minIni)
 set_target_properties(${HOMEBREW_APP}.elf PROPERTIES
         LINKER_LANGUAGE CXX # Replace this with C if you have C source files
         LINK_FLAGS "-specs=${LIBNX}/switch.specs -march=armv8-a+simd+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE -Wl,--as-needed -Wl,--gc-sections -Wl,--strip-all -Wl,-Map,.map")
