@@ -129,6 +129,23 @@ void __appExit(void) {
     socketExit();
     smExit();
 }
+
+// Stub out C++ exception handling to save RAM.
+// Since -fno-exceptions is used, these should never be called,
+// but the runtime still links in unwind table data. Wrapping them
+// allows --gc-sections to strip the unused unwind code.
+// Credits to MasaGratoR for the approach.
+void __wrap___cxa_throw(void *thrown_exception, void *pvar, void (*dest)(void *)) {
+    abort();
+}
+
+void __wrap__Unwind_Resume() {
+    // no-op
+}
+
+void __wrap___gxx_personality_v0() {
+    // no-op
+}
 }
 
 void initLogger(bool truncate) {
