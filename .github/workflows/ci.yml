@@ -17,6 +17,11 @@ jobs:
 
             - uses: lukka/get-cmake@latest
 
+            - name: Install host build tools (needed for local curl build)
+              run: |
+                sudo apt-get update
+                sudo apt-get install -y autoconf automake libtool pkg-config patch
+
             - name: Build
               run: bash scripts/build.sh
 
