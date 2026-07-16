@@ -97,15 +97,6 @@ bool ImmichChannel::send(std::string_view path) {
     curl_mime_filedata(part, path.data());
     curl_mime_name(part, "assetData");
 
-    // Setting all device name stuffs as NX as it isn't used by Immich any more.
-    part = curl_mime_addpart(mime);
-    curl_mime_name(part, "deviceAssetId");
-    curl_mime_data(part, "NX", CURL_ZERO_TERMINATED);
-
-    part = curl_mime_addpart(mime);
-    curl_mime_name(part, "deviceId");
-    curl_mime_data(part, "NX", CURL_ZERO_TERMINATED);
-
     // Get the local time for the switch and present it to Immich in the
     // fileCreatedAt and fileModifiedAt fields
     const std::string timeStr = getCurrentTimeISO8601();
