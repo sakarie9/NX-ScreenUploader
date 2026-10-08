@@ -42,6 +42,8 @@ constexpr long RETRY_DELAY_MIN_MS = 100;
 constexpr long RETRY_DELAY_MAX_MS = 120000;
 constexpr long RETRY_AFTER_MIN_MS = 1000;
 constexpr long RETRY_AFTER_MAX_MS = 300000;
+constexpr long ITEM_BUDGET_MIN_S = 0;      // 0 = unlimited
+constexpr long ITEM_BUDGET_MAX_S = 7200;
 
 // Read a numeric value from [general] and clamp it to the given range
 long readClampedLong(const char* key, long defaultValue, long minimum,
@@ -137,6 +139,9 @@ bool Config::refresh() {
         policy.maxAttempts = static_cast<int>(readClampedLong(
             key("max_attempts").c_str(), policy.maxAttempts, MAX_ATTEMPTS_MIN,
             MAX_ATTEMPTS_MAX));
+        policy.itemBudgetS = readClampedLong(
+            key("item_budget").c_str(), policy.itemBudgetS, ITEM_BUDGET_MIN_S,
+            ITEM_BUDGET_MAX_S);
 
         // A total timeout below the connect timeout would abort every
         // transfer before the connection is even established.

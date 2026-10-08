@@ -203,6 +203,15 @@ inline std::string describeFailure(const UploadOutcome& outcome) {
     return description;
 }
 
+// Milliseconds elapsed since the given system tick
+inline u64 elapsedMs(u64 startTick) {
+    const u64 freq = armGetSystemTickFreq();
+    if (freq == 0) {
+        return 0;
+    }
+    return (armGetSystemTick() - startTick) * 1000ULL / freq;
+}
+
 // Process upload queue
 void processUploadQueue() {
     // Process all tasks in queue until empty
@@ -219,18 +228,42 @@ void processUploadQueue() {
         const UploadPolicy& policy = Config::get().policy(isVideo);
         const int maxAttempts = policy.maxAttempts;
 
+        // Optional hard limit for the whole file, shared by all channels
+        const u64 budgetMs = static_cast<u64>(policy.itemBudgetS) * 1000ULL;
+        const u64 startTick = armGetSystemTick();
+        bool budgetExhausted = false;
+
+        const std::string budgetText =
+            policy.itemBudgetS > 0
+                ? (", budget " + std::to_string(policy.itemBudgetS) + "s")
+                : std::string();
+
         Logger::get().info() << "Uploading: " << filePath << " ("
                              << (isVideo ? "video" : "image") << ", max "
                              << maxAttempts << " attempts, "
-                             << policy.totalTimeout << "s timeout each)" << endl;
+                             << policy.totalTimeout << "s timeout each"
+                             << budgetText << ")" << endl;
 
         bool anySuccess = false;
 
         // Retry helper: upload via a channel until it succeeds, fails
         // permanently or runs out of attempts
         auto tryUpload = [&](const char* name, bool enabled, auto send) {
-            if (!enabled) return;
+            if (!enabled || budgetExhausted) return;
             for (int attempt = 1; attempt <= maxAttempts; ++attempt) {
+                // Stop before starting another attempt once the file has used
+                // up its total budget
+                if (budgetMs != 0 && elapsedMs(startTick) >= budgetMs) {
+                    Logger::get().error()
+                        << "[" << name << "] Item budget of "
+                        << policy.itemBudgetS
+                        << "s exhausted, skipping the remaining attempts and "
+                           "channels"
+                        << endl;
+                    budgetExhausted = true;
+                    return;
+                }
+
                 const UploadOutcome outcome = send();
 
                 if (outcome.ok()) {
@@ -254,8 +287,17 @@ void processUploadQueue() {
                     return;
                 }
 
-                const u64 delayMs =
+                u64 delayMs =
                     retryDelayMs(policy, attempt, outcome.retryAfterSec);
+
+                // Never sleep past the item budget
+                if (budgetMs != 0) {
+                    const u64 elapsed = elapsedMs(startTick);
+                    const u64 remaining =
+                        elapsed < budgetMs ? budgetMs - elapsed : 0;
+                    delayMs = std::min(delayMs, remaining);
+                }
+
                 Logger::get().info()
                     << "[" << name << "] Attempt " << attempt << "/"
                     << maxAttempts << " failed: " << describeFailure(outcome)

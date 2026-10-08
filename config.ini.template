@@ -41,6 +41,13 @@ immich = false
 ; upload_retry_max_ms = 15000
 ; upload_retry_after_cap_ms = 60000
 
+; Hard time budget in seconds for a single file, counted over all channels
+; and attempts. Because the upload queue is processed synchronously, a very
+; unlucky file can otherwise keep the screenshot detection loop busy for a
+; long time. 0 (default) disables the limit.
+; upload_image_item_budget = 0
+; upload_video_item_budget = 0
+
 ; Keep log files (true/false, default: false)
 ; If true, log files will be kept every time the sysmodule runs
 ; keep_logs = false

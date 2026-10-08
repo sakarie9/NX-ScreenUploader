@@ -34,6 +34,11 @@ inline constexpr int VIDEO_MAX_ATTEMPTS = 3;
 inline constexpr long RETRY_BASE_DELAY_MS = 1000;
 inline constexpr long RETRY_MAX_DELAY_MS = 15000;
 inline constexpr long RETRY_AFTER_MAX_MS = 60000;
+
+// Total time budget in seconds for a single file, counted over all channels
+// and attempts. 0 disables the limit.
+inline constexpr long IMAGE_ITEM_BUDGET_S = 0;
+inline constexpr long VIDEO_ITEM_BUDGET_S = 0;
 }  // namespace UploadDefaults
 
 /// Runtime upload tuning, resolved from config.ini at startup
@@ -46,6 +51,7 @@ struct UploadPolicy {
     long retryBaseDelayMs;
     long retryMaxDelayMs;
     long retryAfterMaxMs;  // upper bound for a server Retry-After hint
+    long itemBudgetS;      // total budget per file, 0 = unlimited
 };
 
 /// Build the default policy for images or videos
@@ -63,6 +69,8 @@ inline constexpr UploadPolicy makeUploadPolicy(bool isVideo) noexcept {
         UploadDefaults::RETRY_BASE_DELAY_MS,
         UploadDefaults::RETRY_MAX_DELAY_MS,
         UploadDefaults::RETRY_AFTER_MAX_MS,
+        isVideo ? UploadDefaults::VIDEO_ITEM_BUDGET_S
+                : UploadDefaults::IMAGE_ITEM_BUDGET_S,
     };
 }
 
