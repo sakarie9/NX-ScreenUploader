@@ -26,6 +26,10 @@ constexpr int CHECK_INTERVAL_MINIMUM = 1;
 constexpr bool DEFAULT_KEEP_LOGS = false;
 constexpr std::string_view DEFAULT_LOG_LEVEL = "info";
 
+// Optional upload timeout/retry tuning lives in its own section so that the
+// channel configuration stays easy to find in config.ini
+constexpr const char* UPLOAD_SECTION = "upload";
+
 // Accepted ranges for the upload tuning values. Anything outside the range
 // is clamped so that a typo cannot make uploads hang forever.
 constexpr long CONNECT_TIMEOUT_MIN_S = 1;
@@ -45,17 +49,18 @@ constexpr long RETRY_AFTER_MAX_MS = 300000;
 constexpr long ITEM_BUDGET_MIN_S = 0;      // 0 = unlimited
 constexpr long ITEM_BUDGET_MAX_S = 7200;
 
-// Read a numeric value from [general] and clamp it to the given range
+// Read a numeric value from [upload] and clamp it to the given range
 long readClampedLong(const char* key, long defaultValue, long minimum,
                      long maximum) {
     const long value =
-        IniHelpers::getLong("general", key, defaultValue, CONFIG_PATH);
+        IniHelpers::getLong(UPLOAD_SECTION, key, defaultValue, CONFIG_PATH);
     const long clamped = std::clamp(value, minimum, maximum);
 
     if (clamped != value) {
-        Logger::get().warn() << "Invalid " << key << ": " << value
-                             << " (valid range: " << minimum << ".." << maximum
-                             << "). Using " << clamped << "." << endl;
+        Logger::get().warn() << "Invalid [" << UPLOAD_SECTION << "] " << key
+                             << ": " << value << " (valid range: " << minimum
+                             << ".." << maximum << "). Using " << clamped << "."
+                             << endl;
     }
     return clamped;
 }
@@ -121,7 +126,7 @@ bool Config::refresh() {
     // start out with the built-in defaults, so the current value is used as
     // the fallback for every key.
     auto loadPolicy = [&](UploadPolicy& policy, const char* type) {
-        const std::string prefix = std::string("upload_") + type + "_";
+        const std::string prefix = std::string(type) + "_";
         const auto key = [&](const char* name) { return prefix + name; };
 
         policy.connectTimeout =
@@ -147,7 +152,7 @@ bool Config::refresh() {
         // transfer before the connection is even established.
         if (policy.totalTimeout < policy.connectTimeout) {
             Logger::get().warn()
-                << "upload_" << type << "_total_timeout ("
+                << "[" << UPLOAD_SECTION << "] " << type << "_total_timeout ("
                 << policy.totalTimeout << "s) is shorter than the connect "
                 << "timeout (" << policy.connectTimeout << "s). Raising it."
                 << endl;
@@ -159,23 +164,23 @@ bool Config::refresh() {
     loadPolicy(m_videoPolicy, "video");
 
     // Shared tuning: read once, then applied to both policies
-    const long lowSpeedLimit =
-        readClampedLong("upload_low_speed_limit", m_imagePolicy.lowSpeedLimit,
-                        LOW_SPEED_LIMIT_MIN_BPS, LOW_SPEED_LIMIT_MAX_BPS);
-    const long retryBaseDelayMs = readClampedLong(
-        "upload_retry_base_ms", m_imagePolicy.retryBaseDelayMs,
-        RETRY_DELAY_MIN_MS, RETRY_DELAY_MAX_MS);
-    long retryMaxDelayMs =
-        readClampedLong("upload_retry_max_ms", m_imagePolicy.retryMaxDelayMs,
+    const long lowSpeedLimit = readClampedLong(
+        "low_speed_limit", m_imagePolicy.lowSpeedLimit,
+        LOW_SPEED_LIMIT_MIN_BPS, LOW_SPEED_LIMIT_MAX_BPS);
+    const long retryBaseDelayMs =
+        readClampedLong("retry_base_ms", m_imagePolicy.retryBaseDelayMs,
                         RETRY_DELAY_MIN_MS, RETRY_DELAY_MAX_MS);
-    const long retryAfterMaxMs = readClampedLong(
-        "upload_retry_after_cap_ms", m_imagePolicy.retryAfterMaxMs,
-        RETRY_AFTER_MIN_MS, RETRY_AFTER_MAX_MS);
+    long retryMaxDelayMs =
+        readClampedLong("retry_max_ms", m_imagePolicy.retryMaxDelayMs,
+                        RETRY_DELAY_MIN_MS, RETRY_DELAY_MAX_MS);
+    const long retryAfterMaxMs =
+        readClampedLong("retry_after_cap_ms", m_imagePolicy.retryAfterMaxMs,
+                        RETRY_AFTER_MIN_MS, RETRY_AFTER_MAX_MS);
 
     if (retryMaxDelayMs < retryBaseDelayMs) {
         Logger::get().warn()
-            << "upload_retry_max_ms (" << retryMaxDelayMs
-            << "ms) is below upload_retry_base_ms (" << retryBaseDelayMs
+            << "[" << UPLOAD_SECTION << "] retry_max_ms (" << retryMaxDelayMs
+            << "ms) is below retry_base_ms (" << retryBaseDelayMs
             << "ms). Raising it." << endl;
         retryMaxDelayMs = retryBaseDelayMs;
     }

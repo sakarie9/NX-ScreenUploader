@@ -14,40 +14,6 @@ immich = false
 ; A longer interval will increase the delay between capture and upload.
 ; check_interval = 5
 
-; ===== Upload tuning =====
-; Every value below is optional, the defaults are shown.
-;
-; Timeouts in seconds, applied to each upload attempt separately.
-; The idle timeout aborts a transfer that stays below upload_low_speed_limit
-; for that many seconds, the total timeout is a hard limit per attempt.
-; upload_image_connect_timeout = 10
-; upload_image_idle_timeout = 30
-; upload_image_total_timeout = 60
-; upload_video_connect_timeout = 15
-; upload_video_idle_timeout = 60
-; upload_video_total_timeout = 300
-; upload_low_speed_limit = 1
-
-; Total attempts per channel and file, 1 means no retry.
-; upload_image_max_attempts = 2
-; upload_video_max_attempts = 3
-
-; Retry backoff in milliseconds. Retries start at the base delay, grow
-; exponentially and are capped at the max delay, with +/-20% jitter so that
-; multiple channels do not retry at the same moment. A Retry-After header
-; sent by the server takes precedence, capped at retry_after_cap so that the
-; uploader cannot stall for minutes.
-; upload_retry_base_ms = 1000
-; upload_retry_max_ms = 15000
-; upload_retry_after_cap_ms = 60000
-
-; Hard time budget in seconds for a single file, counted over all channels
-; and attempts. Because the upload queue is processed synchronously, a very
-; unlucky file can otherwise keep the screenshot detection loop busy for a
-; long time. 0 (default) disables the limit.
-; upload_image_item_budget = 0
-; upload_video_item_budget = 0
-
 ; Keep log files (true/false, default: false)
 ; If true, log files will be kept every time the sysmodule runs
 ; keep_logs = false
@@ -65,6 +31,9 @@ immich = false
 ; The standard album (img:/) will only collect video (.mp4) files in this mode.
 ; ONLY set pngshot=true if you are using PNGShot.
 ; pngshot = false
+
+; Optional upload timeouts and retries are configured in the [upload] section
+; at the end of this file.
 
 ; ===== Telegram Configuration =====
 [telegram]
@@ -141,3 +110,36 @@ api_key = 123456789
 ; Upload settings for Immich
 upload_screenshots = true
 upload_videos = false
+
+
+; ===== Upload tuning (optional) =====
+; Every key below is optional, the defaults are shown. Details and the exact
+; meaning of each value:
+; https://github.com/sakarie9/NX-ScreenUploader#upload-tuning-optional
+[upload]
+; Timeouts in seconds, applied to every upload attempt separately.
+; image_connect_timeout = 10
+; image_idle_timeout = 30
+; image_total_timeout = 60
+; video_connect_timeout = 15
+; video_idle_timeout = 60
+; video_total_timeout = 300
+
+; A transfer below this many bytes per second counts as stalled and is aborted
+; after the idle timeout above.
+; low_speed_limit = 1
+
+; Total attempts per channel and file, 1 disables retries.
+; image_max_attempts = 2
+; video_max_attempts = 3
+
+; Retry backoff in milliseconds: first delay, exponential growth cap, and the
+; cap for a Retry-After wait requested by the server.
+; retry_base_ms = 1000
+; retry_max_ms = 15000
+; retry_after_cap_ms = 60000
+
+; Total time budget in seconds for a single file, counted over all channels and
+; attempts. 0 disables the limit.
+; image_item_budget = 0
+; video_item_budget = 0
