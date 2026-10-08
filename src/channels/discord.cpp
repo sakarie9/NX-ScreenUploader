@@ -143,6 +143,7 @@ UploadOutcome DiscordChannel::send(std::string_view path) {
 
     if (res == CURLE_OK) {
         long responseCode;
+        curl_off_t retryAfter = 0;
         double requestSize;
         double totalTime;
         double uploadSpeed;
@@ -150,6 +151,8 @@ UploadOutcome DiscordChannel::send(std::string_view path) {
         curl_easy_getinfo(curl, CURLINFO_SIZE_UPLOAD, &requestSize);
         curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME, &totalTime);
         curl_easy_getinfo(curl, CURLINFO_SPEED_UPLOAD, &uploadSpeed);
+        // Retry-After hint, only set by the server on 429/503 responses
+        curl_easy_getinfo(curl, CURLINFO_RETRY_AFTER, &retryAfter);
 
         Logger::get().info()
             << logPrefix << "Transfer complete - " << requestSize
@@ -171,7 +174,8 @@ UploadOutcome DiscordChannel::send(std::string_view path) {
         Logger::get().error()
             << logPrefix << "HTTP error - Response code: " << responseCode
             << ", File: " << path << ", Size: " << size << " bytes" << endl;
-        return {classifyHttp(responseCode), responseCode};
+        return {classifyHttp(responseCode), responseCode,
+                static_cast<long>(retryAfter)};
     } else {
         double requestSize = 0;
         curl_easy_getinfo(curl, CURLINFO_SIZE_UPLOAD, &requestSize);

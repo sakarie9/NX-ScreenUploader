@@ -3,6 +3,7 @@
 #include <switch.h>
 
 #include <algorithm>
+#include <cstdlib>
 #include <cstring>
 #include <string>
 #include <string_view>
@@ -172,10 +173,27 @@ void initLogger(bool truncate) {
     logger << separator << endl;
 }
 
-// Exponential backoff delay helper (1s, 2s, 4s...)
-inline void exponentialBackoff(int retryCount) {
-    const u64 delayMs = (1ULL << retryCount) * 1000ULL;
-    svcSleepThread(delayMs * 1'000'000ULL);
+// Retry backoff policy
+constexpr long RETRY_BASE_DELAY_MS = 1000;  // first retry waits about a second
+constexpr long RETRY_MAX_DELAY_MS = 15000;  // cap for the exponential growth
+constexpr long RETRY_AFTER_MAX_MS = 60000;  // cap for a server Retry-After hint
+
+// Delay before the next upload attempt. A server provided Retry-After value
+// wins, otherwise the delay grows exponentially and gets a bounded random
+// jitter so that several channels do not retry in lockstep.
+inline u64 retryDelayMs(int attempt, long retryAfterSec) {
+    if (retryAfterSec > 0) {
+        const long seconds = std::min(retryAfterSec, RETRY_AFTER_MAX_MS / 1000);
+        return static_cast<u64>(seconds * 1000L);
+    }
+
+    const long shift = std::min(attempt - 1, 4);
+    const long base = std::min(RETRY_BASE_DELAY_MS << shift, RETRY_MAX_DELAY_MS);
+
+    // +/- 20% jitter
+    const long jitter = base / 5 + 1;
+    const long delay = base - jitter / 2 + (rand() % jitter);
+    return static_cast<u64>(delay);
 }
 
 // Short human readable description of a failed upload attempt
@@ -236,11 +254,12 @@ void processUploadQueue() {
                     return;
                 }
 
+                const u64 delayMs = retryDelayMs(attempt, outcome.retryAfterSec);
                 Logger::get().info()
                     << "[" << name << "] Attempt " << attempt << "/"
                     << maxRetries << " failed: " << describeFailure(outcome)
-                    << ", retrying" << endl;
-                exponentialBackoff(attempt - 1);
+                    << ", retrying in " << (delayMs / 1000) << "s" << endl;
+                svcSleepThread(delayMs * 1'000'000ULL);
             }
         };
 
