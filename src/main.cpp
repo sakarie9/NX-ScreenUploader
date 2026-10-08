@@ -178,6 +178,15 @@ inline void exponentialBackoff(int retryCount) {
     svcSleepThread(delayMs * 1'000'000ULL);
 }
 
+// Short human readable description of a failed upload attempt
+inline std::string describeFailure(const UploadOutcome& outcome) {
+    std::string description = toString(outcome.status);
+    if (outcome.httpCode != 0) {
+        description += " (HTTP " + std::to_string(outcome.httpCode) + ")";
+    }
+    return description;
+}
+
 // Process upload queue
 void processUploadQueue() {
     // Process all tasks in queue until empty
@@ -189,33 +198,50 @@ void processUploadQueue() {
             break;  // Queue empty, exit
         }
 
-        // Determine max retries based on file type
+        // Determine max attempts based on file type
         const bool isVideo = isVideoFile(filePath);
         const int maxRetries = getMaxRetries(isVideo);
 
         Logger::get().info() << "Uploading: " << filePath << " ("
                              << (isVideo ? "video" : "image") << ", max "
-                             << maxRetries << " retries)" << endl;
+                             << maxRetries << " attempts)" << endl;
 
         bool anySuccess = false;
 
-        // Retry helper: upload via a channel with exponential backoff
+        // Retry helper: upload via a channel until it succeeds, fails
+        // permanently or runs out of attempts
         auto tryUpload = [&](const char* name, bool enabled, auto send) {
             if (!enabled) return;
-            bool sent = false;
-            for (int retry = 0; retry < maxRetries && !sent; ++retry) {
-                if (retry > 0) {
-                    Logger::get().info() << "[" << name << "] Retry " << retry
-                                         << "/" << maxRetries << endl;
-                    exponentialBackoff(retry - 1);
+            for (int attempt = 1; attempt <= maxRetries; ++attempt) {
+                const UploadOutcome outcome = send();
+
+                if (outcome.ok()) {
+                    anySuccess = true;
+                    return;
                 }
-                sent = send();
+
+                // A permanent failure will not get better by retrying, so
+                // report it right away instead of burning the whole budget.
+                if (outcome.status == UploadStatus::Permanent) {
+                    Logger::get().error()
+                        << "[" << name << "] " << describeFailure(outcome)
+                        << ", giving up" << endl;
+                    return;
+                }
+
+                if (attempt == maxRetries) {
+                    Logger::get().error()
+                        << "[" << name << "] Upload failed after " << attempt
+                        << " attempt(s): " << describeFailure(outcome) << endl;
+                    return;
+                }
+
+                Logger::get().info()
+                    << "[" << name << "] Attempt " << attempt << "/"
+                    << maxRetries << " failed: " << describeFailure(outcome)
+                    << ", retrying" << endl;
+                exponentialBackoff(attempt - 1);
             }
-            if (sent)
-                anySuccess = true;
-            else
-                Logger::get().error() << "[" << name << "] Upload failed after "
-                                      << maxRetries << " attempts" << endl;
         };
 
 // Upload via each channel (defined in channels/channels.inc)

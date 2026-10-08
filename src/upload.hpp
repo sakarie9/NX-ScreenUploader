@@ -3,6 +3,7 @@
 #include <curl/curl.h>
 
 #include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <string_view>
 
@@ -25,6 +26,38 @@ struct VideoTimeouts {
     static constexpr long totalTimeout = 300L;   // 5 minutes
     static constexpr int maxRetries = 3;
 };
+
+// Upload result classification
+
+/// How an upload attempt ended. Used by the retry loop to decide whether
+/// another attempt can possibly succeed.
+enum class UploadStatus : uint8_t {
+    Success,    // Uploaded successfully
+    Skipped,    // Intentionally not uploaded (config), counts as success
+    Transient,  // Failed, but retrying may succeed
+    Permanent,  // Failed in a way that retrying cannot fix
+};
+
+/// Result of a single upload attempt
+struct UploadOutcome {
+    UploadStatus status{UploadStatus::Transient};
+    long httpCode{0};
+    long retryAfterSec{0};  // Retry-After hint from the server, 0 if absent
+
+    [[nodiscard]] constexpr bool ok() const noexcept {
+        return status == UploadStatus::Success ||
+               status == UploadStatus::Skipped;
+    }
+};
+
+/// Classify a CURL error code as retryable or not
+UploadStatus classifyCurl(CURLcode res) noexcept;
+
+/// Classify an HTTP response code as retryable or not
+UploadStatus classifyHttp(long responseCode) noexcept;
+
+/// Human readable name of an upload status, for logging
+const char* toString(UploadStatus status) noexcept;
 
 // Shared upload types
 

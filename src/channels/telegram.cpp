@@ -85,7 +85,7 @@ bool TelegramChannel::Config::validate() {
     return false;
 }
 
-bool TelegramChannel::send(std::string_view path) {
+UploadOutcome TelegramChannel::send(std::string_view path) {
     constexpr std::string_view logPrefix = "[Telegram] ";
     const auto& uploadMode = ::Config::get().telegram.uploadMode;
     std::string_view tid;
@@ -102,16 +102,16 @@ bool TelegramChannel::send(std::string_view path) {
                            ::Config::get().telegram.uploadScreenshots,
                            ::Config::get().telegram.uploadVideos);
     if (validationResult == ValidationResult::Error) {
-        return false;
+        return {UploadStatus::Permanent};  // Invalid file, retrying cannot help
     }
     if (validationResult == ValidationResult::Skip) {
-        return true;
+        return {UploadStatus::Skipped};
     }
 
     const fs::path filePath{path};
 
     // Lambda to handle a single upload attempt with or without compression
-    auto attempt = [&](bool compression) -> bool {
+    auto attempt = [&](bool compression) -> UploadOutcome {
         Logger::get().info()
             << logPrefix
             << "Mode: " << (compression ? "compressed" : "original") << endl;
@@ -122,14 +122,14 @@ bool TelegramChannel::send(std::string_view path) {
         if (fileTypeInfo.contentType.empty()) {
             Logger::get().error() << logPrefix << "Unknown file extension: "
                                   << filePath.extension().string() << endl;
-            return false;
+            return {UploadStatus::Permanent};
         }
 
         FILE* f = std::fopen(filePath.c_str(), "rb");
         if (f == nullptr) {
             Logger::get().error()
                 << logPrefix << "fopen() failed for file: " << path << endl;
-            return false;
+            return {UploadStatus::Permanent};  // Unreadable file
         }
 
         UploadInfo ui{f, size};
@@ -156,7 +156,7 @@ bool TelegramChannel::send(std::string_view path) {
             curl_formfree(formpost);
             Logger::get().error()
                 << logPrefix << "curl_easy_init() failed" << endl;
-            return false;
+            return {UploadStatus::Transient};  // Usually memory pressure
         }
 
         // Build URL
@@ -223,13 +223,13 @@ bool TelegramChannel::send(std::string_view path) {
             if (responseCode == 200) {
                 Logger::get().info()
                     << logPrefix << "Successfully uploaded " << path << endl;
-                return true;
+                return {UploadStatus::Success};
             }
 
             Logger::get().error()
                 << logPrefix << "HTTP error - Response code: " << responseCode
                 << ", File: " << path << ", Size: " << size << " bytes" << endl;
-            return false;
+            return {classifyHttp(responseCode), responseCode};
         } else {
             double requestSize = 0;
             curl_easy_getinfo(curl, CURLINFO_SIZE_UPLOAD, &requestSize);
@@ -240,15 +240,28 @@ bool TelegramChannel::send(std::string_view path) {
                 << endl;
             curl_easy_cleanup(curl);
             curl_formfree(formpost);
-            return false;
+            return {classifyCurl(res)};
         }
     };
 
     // Dispatch based on upload mode
     if (uploadMode == "both") {
-        const bool compressed = attempt(true);
-        const bool original = attempt(false);
-        return compressed || original;
+        // Both variants are always attempted; succeeding with one of them
+        // counts as a successful upload.
+        const UploadOutcome compressed = attempt(true);
+        const UploadOutcome original = attempt(false);
+        if (compressed.ok() || original.ok()) {
+            return {UploadStatus::Success};
+        }
+        // Both failed. Retrying only makes sense if at least one variant
+        // failed for a retryable reason.
+        if (compressed.status == UploadStatus::Transient) {
+            return compressed;
+        }
+        if (original.status == UploadStatus::Transient) {
+            return original;
+        }
+        return compressed;  // Both failed permanently
     }
     return attempt(uploadMode == "compressed");
 }

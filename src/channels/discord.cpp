@@ -41,7 +41,7 @@ bool DiscordChannel::Config::validate() {
     return false;
 }
 
-bool DiscordChannel::send(std::string_view path) {
+UploadOutcome DiscordChannel::send(std::string_view path) {
     constexpr std::string_view logPrefix = "[Discord] ";
     std::string_view tid;
     bool isVideo;
@@ -57,10 +57,10 @@ bool DiscordChannel::send(std::string_view path) {
                            ::Config::get().discord.uploadScreenshots,
                            ::Config::get().discord.uploadVideos);
     if (validationResult == ValidationResult::Error) {
-        return false;
+        return {UploadStatus::Permanent};  // Invalid file, retrying cannot help
     }
     if (validationResult == ValidationResult::Skip) {
-        return true;  // Not an error, just skipping per config
+        return {UploadStatus::Skipped};  // Not an error, just skipping per config
     }
 
     const fs::path filePath{path};
@@ -70,7 +70,7 @@ bool DiscordChannel::send(std::string_view path) {
     if (f == nullptr) {
         Logger::get().error()
             << logPrefix << "fopen() failed for file: " << path << endl;
-        return false;
+        return {UploadStatus::Permanent};  // Unreadable file, retrying is futile
     }
 
     UploadInfo ui{f, size};
@@ -87,7 +87,7 @@ bool DiscordChannel::send(std::string_view path) {
         std::fclose(f);
         curl_formfree(formpost);
         Logger::get().error() << logPrefix << "curl_easy_init() failed" << endl;
-        return false;
+        return {UploadStatus::Transient};  // Usually memory pressure
     }
 
     // Build URL
@@ -165,13 +165,13 @@ bool DiscordChannel::send(std::string_view path) {
         if (responseCode == 200 || responseCode == 201) {
             Logger::get().info()
                 << logPrefix << "Successfully uploaded " << path << endl;
-            return true;
+            return {UploadStatus::Success};
         }
 
         Logger::get().error()
             << logPrefix << "HTTP error - Response code: " << responseCode
             << ", File: " << path << ", Size: " << size << " bytes" << endl;
-        return false;
+        return {classifyHttp(responseCode), responseCode};
     } else {
         double requestSize = 0;
         curl_easy_getinfo(curl, CURLINFO_SIZE_UPLOAD, &requestSize);
@@ -182,6 +182,6 @@ bool DiscordChannel::send(std::string_view path) {
         curl_easy_cleanup(curl);
         curl_formfree(formpost);
         curl_slist_free_all(headers);
-        return false;
+        return {classifyCurl(res)};
     }
 }

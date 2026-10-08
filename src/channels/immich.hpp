@@ -3,6 +3,8 @@
 #include <string>
 #include <string_view>
 
+#include "upload.hpp"
+
 namespace ImmichChannel {
 
 // Default values for Immich channel configuration
@@ -41,6 +43,6 @@ struct Config {
 };
 
 /// Upload a file to Immich
-[[nodiscard]] bool send(std::string_view path);
+[[nodiscard]] UploadOutcome send(std::string_view path);
 
 }  // namespace ImmichChannel

@@ -41,7 +41,7 @@ bool NtfyChannel::Config::validate() {
     return false;
 }
 
-bool NtfyChannel::send(std::string_view path) {
+UploadOutcome NtfyChannel::send(std::string_view path) {
     constexpr std::string_view logPrefix = "[ntfy] ";
     std::string_view tid;
     bool isVideo;
@@ -56,10 +56,10 @@ bool NtfyChannel::send(std::string_view path) {
         path, logPrefix, tid, isVideo, ::Config::get().ntfy.uploadScreenshots,
         ::Config::get().ntfy.uploadVideos);
     if (validationResult == ValidationResult::Error) {
-        return false;
+        return {UploadStatus::Permanent};  // Invalid file, retrying cannot help
     }
     if (validationResult == ValidationResult::Skip) {
-        return true;  // Not an error, just skipping per config
+        return {UploadStatus::Skipped};  // Not an error, just skipping per config
     }
 
     const fs::path filePath{path};
@@ -69,7 +69,7 @@ bool NtfyChannel::send(std::string_view path) {
     if (f == nullptr) {
         Logger::get().error()
             << logPrefix << "fopen() failed for file: " << path << endl;
-        return false;
+        return {UploadStatus::Permanent};  // Unreadable file, retrying is futile
     }
 
     UploadInfo ui{f, size};
@@ -78,7 +78,7 @@ bool NtfyChannel::send(std::string_view path) {
     if (!curl) {
         std::fclose(f);
         Logger::get().error() << logPrefix << "curl_easy_init() failed" << endl;
-        return false;
+        return {UploadStatus::Transient};  // Usually memory pressure
     }
 
     // Build URL
@@ -89,7 +89,7 @@ bool NtfyChannel::send(std::string_view path) {
         std::fclose(f);
         curl_easy_cleanup(curl);
         Logger::get().error() << logPrefix << "Topic is not configured" << endl;
-        return false;
+        return {UploadStatus::Permanent};
     }
 
     std::string url;
@@ -178,13 +178,13 @@ bool NtfyChannel::send(std::string_view path) {
         if (responseCode == 200) {
             Logger::get().info()
                 << logPrefix << "Successfully uploaded " << path << endl;
-            return true;
+            return {UploadStatus::Success};
         }
 
         Logger::get().error()
             << logPrefix << "HTTP error - Response code: " << responseCode
             << ", File: " << path << ", Size: " << size << " bytes" << endl;
-        return false;
+        return {classifyHttp(responseCode), responseCode};
     } else {
         double requestSize = 0;
         curl_easy_getinfo(curl, CURLINFO_SIZE_UPLOAD, &requestSize);
@@ -194,6 +194,6 @@ bool NtfyChannel::send(std::string_view path) {
             << ", Bytes sent: " << requestSize << ", File: " << path << endl;
         curl_slist_free_all(headers);
         curl_easy_cleanup(curl);
-        return false;
+        return {classifyCurl(res)};
     }
 }

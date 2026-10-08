@@ -11,6 +11,53 @@
 
 namespace fs = std::filesystem;
 
+// Upload result classification
+
+UploadStatus classifyCurl(CURLcode res) noexcept {
+    switch (res) {
+        // Transport level failures that a later attempt may recover from
+        case CURLE_OPERATION_TIMEDOUT:
+        case CURLE_COULDNT_CONNECT:
+        case CURLE_COULDNT_RESOLVE_HOST:
+        case CURLE_COULDNT_RESOLVE_PROXY:
+        case CURLE_SEND_ERROR:
+        case CURLE_RECV_ERROR:
+        case CURLE_GOT_NOTHING:
+        case CURLE_PARTIAL_FILE:
+        case CURLE_SSL_CONNECT_ERROR:
+            return UploadStatus::Transient;
+        default:
+            // Configuration, URL, certificate and similar errors will fail
+            // again on every retry.
+            return UploadStatus::Permanent;
+    }
+}
+
+UploadStatus classifyHttp(long responseCode) noexcept {
+    if (responseCode == 408 || responseCode == 425 || responseCode == 429) {
+        return UploadStatus::Transient;  // Too early / rate limited
+    }
+    if (responseCode >= 500 && responseCode <= 599) {
+        return UploadStatus::Transient;  // Server side problem
+    }
+    // 400/401/403/404/413/415/422 and friends: retrying cannot help
+    return UploadStatus::Permanent;
+}
+
+const char* toString(UploadStatus status) noexcept {
+    switch (status) {
+        case UploadStatus::Success:
+            return "success";
+        case UploadStatus::Skipped:
+            return "skipped";
+        case UploadStatus::Transient:
+            return "transient failure";
+        case UploadStatus::Permanent:
+            return "permanent failure";
+    }
+    return "unknown";
+}
+
 // CURL read callback for streaming file content
 size_t uploadReadFunction(void* ptr, size_t size, size_t nmemb,
                           void* data) noexcept {
