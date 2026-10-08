@@ -246,7 +246,9 @@ bool TelegramChannel::send(std::string_view path) {
 
     // Dispatch based on upload mode
     if (uploadMode == "both") {
-        return attempt(true) || attempt(false);
+        const bool compressed = attempt(true);
+        const bool original = attempt(false);
+        return compressed || original;
     }
     return attempt(uploadMode == "compressed");
 }
