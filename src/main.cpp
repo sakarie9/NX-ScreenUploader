@@ -212,110 +212,137 @@ inline u64 elapsedMs(u64 startTick) {
     return (armGetSystemTick() - startTick) * 1000ULL / freq;
 }
 
-// Process upload queue
-void processUploadQueue() {
-    // Process all tasks in queue until empty
-    while (true) {
-        char filePath[128];
+// Convert a duration in milliseconds to system ticks
+inline u64 msToTicks(u64 ms) {
+    const u64 freq = armGetSystemTickFreq();
+    if (freq == 0) {
+        return 0;
+    }
+    return ms * freq / 1000ULL;
+}
 
-        // Try to get a task from the queue
-        if (!queueGet(filePath, sizeof(filePath))) {
-            break;  // Queue empty, exit
-        }
+// Number of upload channels, derived from the unified channel list
+inline constexpr int CHANNEL_COUNT = 0
+#define CHANNEL(Ns, M) +1
+#include "channels/channels.inc"
+#undef CHANNEL
+    ;
 
-        // Timeouts and retry budget depend on the file type
-        const bool isVideo = isVideoFile(filePath);
+static_assert(CHANNEL_COUNT <= 8, "Done/success masks are 8 bits wide");
+
+// Bit mask of the channels that are enabled in the configuration
+uint8_t enabledChannelMask() {
+    uint8_t mask = 0;
+    int index = 0;
+#define CHANNEL(Ns, M)                               \
+    if (Config::get().M.enabled) {                   \
+        mask |= static_cast<uint8_t>(1u << index);   \
+    }                                                \
+    ++index;
+#include "channels/channels.inc"
+#undef CHANNEL
+    return mask;
+}
+
+// Run one upload round for every task that is due. A round attempts each
+// channel that still needs to upload exactly once; tasks that are not finished
+// afterwards are scheduled for a later round instead of blocking the detection
+// loop with a long backoff sleep.
+void processDueUploads() {
+    const uint8_t enabledMask = enabledChannelMask();
+
+    DueUpload task;
+    while (queueTakeDue(armGetSystemTick(), task)) {
+        // Timeouts, retry budget and attempt count depend on the file type
+        const bool isVideo = isVideoFile(task.filePath);
         const UploadPolicy& policy = Config::get().policy(isVideo);
         const int maxAttempts = policy.maxAttempts;
+        const int attempt = task.round + 1;
 
-        // Optional hard limit for the whole file, shared by all channels
+        // Optional hard limit for the whole file, counted over all channels
+        // and rounds. It starts with the first attempt, not with the upload.
         const u64 budgetMs = static_cast<u64>(policy.itemBudgetS) * 1000ULL;
-        const u64 startTick = armGetSystemTick();
+        u64 firstAttemptTick = task.firstAttemptTick;
+        if (firstAttemptTick == 0) {
+            firstAttemptTick = armGetSystemTick();
+        }
+
+        Logger::get().info() << "Uploading: " << task.filePath << " ("
+                             << (isVideo ? "video" : "image") << ", attempt "
+                             << attempt << "/" << maxAttempts << ")" << endl;
+
+        uint8_t doneMask = task.doneMask;
+        uint8_t successMask = task.successMask;
+        long retryAfterSec = 0;
         bool budgetExhausted = false;
+        int index = 0;
 
-        const std::string budgetText =
-            policy.itemBudgetS > 0
-                ? (", budget " + std::to_string(policy.itemBudgetS) + "s")
-                : std::string();
-
-        Logger::get().info() << "Uploading: " << filePath << " ("
-                             << (isVideo ? "video" : "image") << ", max "
-                             << maxAttempts << " attempts, "
-                             << policy.totalTimeout << "s timeout each"
-                             << budgetText << ")" << endl;
-
-        bool anySuccess = false;
-
-        // Retry helper: upload via a channel until it succeeds, fails
-        // permanently or runs out of attempts
-        auto tryUpload = [&](const char* name, bool enabled, auto send) {
-            if (!enabled || budgetExhausted) return;
-            for (int attempt = 1; attempt <= maxAttempts; ++attempt) {
-                // Stop before starting another attempt once the file has used
-                // up its total budget
-                if (budgetMs != 0 && elapsedMs(startTick) >= budgetMs) {
-                    Logger::get().error()
-                        << "[" << name << "] Item budget of "
-                        << policy.itemBudgetS
-                        << "s exhausted, skipping the remaining attempts and "
-                           "channels"
-                        << endl;
-                    budgetExhausted = true;
-                    return;
-                }
-
-                const UploadOutcome outcome = send();
-
-                if (outcome.ok()) {
-                    anySuccess = true;
-                    return;
-                }
-
-                // A permanent failure will not get better by retrying, so
-                // report it right away instead of burning the whole budget.
-                if (outcome.status == UploadStatus::Permanent) {
-                    Logger::get().error()
-                        << "[" << name << "] " << describeFailure(outcome)
-                        << ", giving up" << endl;
-                    return;
-                }
-
-                if (attempt == maxAttempts) {
-                    Logger::get().error()
-                        << "[" << name << "] Upload failed after " << attempt
-                        << " attempt(s): " << describeFailure(outcome) << endl;
-                    return;
-                }
-
-                u64 delayMs =
-                    retryDelayMs(policy, attempt, outcome.retryAfterSec);
-
-                // Never sleep past the item budget
-                if (budgetMs != 0) {
-                    const u64 elapsed = elapsedMs(startTick);
-                    const u64 remaining =
-                        elapsed < budgetMs ? budgetMs - elapsed : 0;
-                    delayMs = std::min(delayMs, remaining);
-                }
-
-                Logger::get().info()
-                    << "[" << name << "] Attempt " << attempt << "/"
-                    << maxAttempts << " failed: " << describeFailure(outcome)
-                    << ", retrying in " << (delayMs / 1000) << "s" << endl;
-                svcSleepThread(delayMs * 1'000'000ULL);
-            }
-        };
-
-// Upload via each channel (defined in channels/channels.inc)
-#define CHANNEL(Ns, M)                      \
-    tryUpload(#Ns, Config::get().M.enabled, \
-              [&] { return Ns##Channel::send(filePath); });
+// Upload via each channel that still needs an attempt (channels/channels.inc)
+#define CHANNEL(Ns, M)                                                  \
+    do {                                                                \
+        const uint8_t bit = static_cast<uint8_t>(1u << index);          \
+        ++index;                                                        \
+        if (budgetExhausted || (enabledMask & bit) == 0 ||              \
+            (doneMask & bit) != 0) {                                    \
+            break;                                                      \
+        }                                                               \
+        if (budgetMs != 0 && elapsedMs(firstAttemptTick) >= budgetMs) { \
+            budgetExhausted = true;                                     \
+            break;                                                      \
+        }                                                               \
+        const UploadOutcome outcome = Ns##Channel::send(task.filePath); \
+        if (outcome.ok()) {                                             \
+            doneMask |= bit;                                            \
+            successMask |= bit;                                         \
+        } else if (outcome.status == UploadStatus::Permanent) {         \
+            doneMask |= bit;                                            \
+            Logger::get().error()                                       \
+                << "[" #Ns "] " << describeFailure(outcome)             \
+                << ", giving up" << endl;                               \
+        } else {                                                        \
+            retryAfterSec =                                             \
+                std::max(retryAfterSec, outcome.retryAfterSec);         \
+            Logger::get().warn()                                        \
+                << "[" #Ns "] " << describeFailure(outcome)             \
+                << ", will retry" << endl;                              \
+        }                                                               \
+    } while (false);
 #include "channels/channels.inc"
 #undef CHANNEL
 
-        if (!anySuccess) {
-            Logger::get().error() << "All uploads failed" << endl;
+        if (budgetExhausted) {
+            Logger::get().error()
+                << "Item budget of " << policy.itemBudgetS
+                << "s exhausted, giving up on " << task.filePath << endl;
+            queueDrop(task);
+            continue;
         }
+
+        // Every enabled channel either uploaded or failed permanently
+        if ((doneMask & enabledMask) == enabledMask) {
+            if ((successMask & enabledMask) != 0) {
+                Logger::get().info()
+                    << "Upload complete: " << task.filePath << endl;
+            } else {
+                Logger::get().error()
+                    << "All uploads failed for " << task.filePath << endl;
+            }
+            queueDrop(task);
+            continue;
+        }
+
+        if (attempt >= maxAttempts) {
+            Logger::get().error()
+                << "Upload failed after " << attempt << " attempt(s): "
+                << task.filePath << endl;
+            queueDrop(task);
+            continue;
+        }
+
+        // Hand the file back to the queue and try again in a later loop
+        const u64 delayMs = retryDelayMs(policy, attempt, retryAfterSec);
+        queueReschedule(task, doneMask, successMask, firstAttemptTick,
+                        armGetSystemTick() + msToTicks(delayMs));
     }
 }
 
@@ -488,11 +515,14 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
             }
         }
 
-        // Process the upload queue immediately after detecting new items
+        // Attempt the uploads that are due, including retry rounds handed over
+        // from an earlier loop iteration
         if (queueCount() > 0) {
-            processUploadQueue();
+            processDueUploads();
         }
 
+        // The detection cadence stays fixed: retries are picked up by a later
+        // iteration instead of shortening the loop period
         svcSleepThread(sleepDuration);
     }
 }
