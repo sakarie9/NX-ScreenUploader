@@ -72,14 +72,15 @@ size_t uploadReadFunction(void* ptr, size_t size, size_t nmemb,
     const size_t bytesRead = std::fread(ptr, 1, bytesToRead, ui->f);
     ui->sizeLeft -= bytesRead;
 
-    // Log progress every 100KB or at completion
-    static size_t lastLoggedProgress = 0;
+    // Log progress every 100KB or at completion. The counter lives in the
+    // transfer state, so retries and parallel uploads of other files start
+    // from a clean value instead of inheriting a stale one.
     const size_t currentProgress = ui->sizeLeft;
     if (currentProgress == 0 ||
-        (lastLoggedProgress - currentProgress) >= 102400) {
+        (ui->lastLoggedProgress - currentProgress) >= 102400) {
         Logger::get().debug() << "[Upload] Progress: " << currentProgress
                               << " bytes remaining" << endl;
-        lastLoggedProgress = currentProgress;
+        ui->lastLoggedProgress = currentProgress;
     }
 
     return bytesRead;

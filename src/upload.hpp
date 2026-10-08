@@ -112,6 +112,7 @@ const char* toString(UploadStatus status) noexcept;
 struct UploadInfo {
     FILE* f;
     size_t sizeLeft;
+    size_t lastLoggedProgress;  // bytes remaining at the last progress log
 };
 
 /// Result of file upload validation

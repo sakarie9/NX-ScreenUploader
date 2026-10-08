@@ -72,7 +72,7 @@ UploadOutcome NtfyChannel::send(std::string_view path) {
         return {UploadStatus::Permanent};  // Unreadable file, retrying is futile
     }
 
-    UploadInfo ui{f, size};
+    UploadInfo ui{f, size, size};
 
     CURL* curl = curl_easy_init();
     if (!curl) {

@@ -73,7 +73,7 @@ UploadOutcome DiscordChannel::send(std::string_view path) {
         return {UploadStatus::Permanent};  // Unreadable file, retrying is futile
     }
 
-    UploadInfo ui{f, size};
+    UploadInfo ui{f, size, size};
     struct curl_httppost* formpost = nullptr;
     struct curl_httppost* lastptr = nullptr;
 
