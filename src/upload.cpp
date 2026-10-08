@@ -87,22 +87,12 @@ size_t uploadReadFunction(void* ptr, size_t size, size_t nmemb,
 
 // CURL timeout configuration helper
 void setCurlTimeouts(CURL* curl, bool isVideo) {
-    if (isVideo) {
-        curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT,
-                         VideoTimeouts::connectTimeout);
-        curl_easy_setopt(curl, CURLOPT_LOW_SPEED_TIME,
-                         VideoTimeouts::idleTimeout);
-        curl_easy_setopt(curl, CURLOPT_LOW_SPEED_LIMIT,
-                         1L);  // At least 1 byte/sec
-        curl_easy_setopt(curl, CURLOPT_TIMEOUT, VideoTimeouts::totalTimeout);
-    } else {
-        curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT,
-                         ImageTimeouts::connectTimeout);
-        curl_easy_setopt(curl, CURLOPT_LOW_SPEED_TIME,
-                         ImageTimeouts::idleTimeout);
-        curl_easy_setopt(curl, CURLOPT_LOW_SPEED_LIMIT, 1L);
-        curl_easy_setopt(curl, CURLOPT_TIMEOUT, ImageTimeouts::totalTimeout);
-    }
+    const UploadPolicy& policy = Config::get().policy(isVideo);
+
+    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, policy.connectTimeout);
+    curl_easy_setopt(curl, CURLOPT_LOW_SPEED_TIME, policy.idleTimeout);
+    curl_easy_setopt(curl, CURLOPT_LOW_SPEED_LIMIT, policy.lowSpeedLimit);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, policy.totalTimeout);
 }
 
 // File upload validation

@@ -117,18 +117,14 @@ UploadOutcome ImmichChannel::send(std::string_view path) {
                      NX_CURL_UPLOAD_BUFFERSIZE);
     setCurlTimeouts(curl, isVideo);
 
+    const UploadPolicy& policy = ::Config::get().policy(isVideo);
     Logger::get().debug() << logPrefix << "CURL config - File type: "
                           << (isVideo ? "video" : "image")
-                          << ", Connect timeout: "
-                          << (isVideo ? VideoTimeouts::connectTimeout
-                                      : ImageTimeouts::connectTimeout)
-                          << "s, Idle timeout: "
-                          << (isVideo ? VideoTimeouts::idleTimeout
-                                      : ImageTimeouts::idleTimeout)
-                          << "s, Total timeout: "
-                          << (isVideo ? VideoTimeouts::totalTimeout
-                                      : ImageTimeouts::totalTimeout)
-                          << "s" << endl;
+                          << ", Connect timeout: " << policy.connectTimeout
+                          << "s, Idle timeout: " << policy.idleTimeout
+                          << "s, Total timeout: " << policy.totalTimeout
+                          << "s, Low speed limit: " << policy.lowSpeedLimit
+                          << " B/s" << endl;
     Logger::get().info() << logPrefix << "Starting CURL transfer..." << endl;
 
     const CURLcode res = curl_easy_perform(curl);

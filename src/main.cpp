@@ -173,22 +173,20 @@ void initLogger(bool truncate) {
     logger << separator << endl;
 }
 
-// Retry backoff policy
-constexpr long RETRY_BASE_DELAY_MS = 1000;  // first retry waits about a second
-constexpr long RETRY_MAX_DELAY_MS = 15000;  // cap for the exponential growth
-constexpr long RETRY_AFTER_MAX_MS = 60000;  // cap for a server Retry-After hint
-
 // Delay before the next upload attempt. A server provided Retry-After value
 // wins, otherwise the delay grows exponentially and gets a bounded random
 // jitter so that several channels do not retry in lockstep.
-inline u64 retryDelayMs(int attempt, long retryAfterSec) {
+inline u64 retryDelayMs(const UploadPolicy& policy, int attempt,
+                        long retryAfterSec) {
     if (retryAfterSec > 0) {
-        const long seconds = std::min(retryAfterSec, RETRY_AFTER_MAX_MS / 1000);
+        const long seconds =
+            std::min(retryAfterSec, policy.retryAfterMaxMs / 1000);
         return static_cast<u64>(seconds * 1000L);
     }
 
     const long shift = std::min(attempt - 1, 4);
-    const long base = std::min(RETRY_BASE_DELAY_MS << shift, RETRY_MAX_DELAY_MS);
+    const long base =
+        std::min(policy.retryBaseDelayMs << shift, policy.retryMaxDelayMs);
 
     // +/- 20% jitter
     const long jitter = base / 5 + 1;
@@ -216,13 +214,15 @@ void processUploadQueue() {
             break;  // Queue empty, exit
         }
 
-        // Determine max attempts based on file type
+        // Timeouts and retry budget depend on the file type
         const bool isVideo = isVideoFile(filePath);
-        const int maxRetries = getMaxRetries(isVideo);
+        const UploadPolicy& policy = Config::get().policy(isVideo);
+        const int maxAttempts = policy.maxAttempts;
 
         Logger::get().info() << "Uploading: " << filePath << " ("
                              << (isVideo ? "video" : "image") << ", max "
-                             << maxRetries << " attempts)" << endl;
+                             << maxAttempts << " attempts, "
+                             << policy.totalTimeout << "s timeout each)" << endl;
 
         bool anySuccess = false;
 
@@ -230,7 +230,7 @@ void processUploadQueue() {
         // permanently or runs out of attempts
         auto tryUpload = [&](const char* name, bool enabled, auto send) {
             if (!enabled) return;
-            for (int attempt = 1; attempt <= maxRetries; ++attempt) {
+            for (int attempt = 1; attempt <= maxAttempts; ++attempt) {
                 const UploadOutcome outcome = send();
 
                 if (outcome.ok()) {
@@ -247,17 +247,18 @@ void processUploadQueue() {
                     return;
                 }
 
-                if (attempt == maxRetries) {
+                if (attempt == maxAttempts) {
                     Logger::get().error()
                         << "[" << name << "] Upload failed after " << attempt
                         << " attempt(s): " << describeFailure(outcome) << endl;
                     return;
                 }
 
-                const u64 delayMs = retryDelayMs(attempt, outcome.retryAfterSec);
+                const u64 delayMs =
+                    retryDelayMs(policy, attempt, outcome.retryAfterSec);
                 Logger::get().info()
                     << "[" << name << "] Attempt " << attempt << "/"
-                    << maxRetries << " failed: " << describeFailure(outcome)
+                    << maxAttempts << " failed: " << describeFailure(outcome)
                     << ", retrying in " << (delayMs / 1000) << "s" << endl;
                 svcSleepThread(delayMs * 1'000'000ULL);
             }

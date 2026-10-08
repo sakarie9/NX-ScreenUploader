@@ -11,21 +11,60 @@
 constexpr size_t NX_CURL_BUFFERSIZE = 0x2000L;         // 8KB
 constexpr size_t NX_CURL_UPLOAD_BUFFERSIZE = 0x2000L;  // 8KB
 
-// Timeout configurations for images (screenshots)
-struct ImageTimeouts {
-    static constexpr long connectTimeout = 10L;  // 10 seconds
-    static constexpr long idleTimeout = 30L;     // 30 seconds
-    static constexpr long totalTimeout = 60L;    // 60 seconds
-    static constexpr int maxRetries = 2;
+// Default upload tuning. These values are used as-is unless config.ini
+// overrides them, which is why they live here and not in the config module.
+namespace UploadDefaults {
+// Timeouts in seconds, applied per upload attempt
+inline constexpr long IMAGE_CONNECT_TIMEOUT_S = 10;
+inline constexpr long IMAGE_IDLE_TIMEOUT_S = 30;
+inline constexpr long IMAGE_TOTAL_TIMEOUT_S = 60;
+inline constexpr long VIDEO_CONNECT_TIMEOUT_S = 15;
+inline constexpr long VIDEO_IDLE_TIMEOUT_S = 60;
+inline constexpr long VIDEO_TOTAL_TIMEOUT_S = 300;
+
+// Abort a transfer when it stays below this many bytes per second for
+// IDLE_TIMEOUT_S seconds
+inline constexpr long LOW_SPEED_LIMIT_BPS = 1;
+
+// Total attempts per channel, not retries after the first one
+inline constexpr int IMAGE_MAX_ATTEMPTS = 2;
+inline constexpr int VIDEO_MAX_ATTEMPTS = 3;
+
+// Retry backoff in milliseconds
+inline constexpr long RETRY_BASE_DELAY_MS = 1000;
+inline constexpr long RETRY_MAX_DELAY_MS = 15000;
+inline constexpr long RETRY_AFTER_MAX_MS = 60000;
+}  // namespace UploadDefaults
+
+/// Runtime upload tuning, resolved from config.ini at startup
+struct UploadPolicy {
+    long connectTimeout;  // seconds
+    long idleTimeout;     // seconds
+    long totalTimeout;    // seconds, per attempt
+    long lowSpeedLimit;   // bytes per second
+    int maxAttempts;      // total attempts per channel
+    long retryBaseDelayMs;
+    long retryMaxDelayMs;
+    long retryAfterMaxMs;  // upper bound for a server Retry-After hint
 };
 
-// Timeout configurations for videos
-struct VideoTimeouts {
-    static constexpr long connectTimeout = 15L;  // 15 seconds
-    static constexpr long idleTimeout = 60L;     // 60 seconds
-    static constexpr long totalTimeout = 300L;   // 5 minutes
-    static constexpr int maxRetries = 3;
-};
+/// Build the default policy for images or videos
+inline constexpr UploadPolicy makeUploadPolicy(bool isVideo) noexcept {
+    return UploadPolicy{
+        isVideo ? UploadDefaults::VIDEO_CONNECT_TIMEOUT_S
+                : UploadDefaults::IMAGE_CONNECT_TIMEOUT_S,
+        isVideo ? UploadDefaults::VIDEO_IDLE_TIMEOUT_S
+                : UploadDefaults::IMAGE_IDLE_TIMEOUT_S,
+        isVideo ? UploadDefaults::VIDEO_TOTAL_TIMEOUT_S
+                : UploadDefaults::IMAGE_TOTAL_TIMEOUT_S,
+        UploadDefaults::LOW_SPEED_LIMIT_BPS,
+        isVideo ? UploadDefaults::VIDEO_MAX_ATTEMPTS
+                : UploadDefaults::IMAGE_MAX_ATTEMPTS,
+        UploadDefaults::RETRY_BASE_DELAY_MS,
+        UploadDefaults::RETRY_MAX_DELAY_MS,
+        UploadDefaults::RETRY_AFTER_MAX_MS,
+    };
+}
 
 // Upload result classification
 
@@ -94,20 +133,4 @@ ValidationResult validateUploadFile(std::string_view path,
 /// Check if file is a video based on extension
 inline bool isVideoFile(std::string_view path) {
     return (path.size() >= 4 && path.substr(path.size() - 4) == ".mp4");
-}
-
-/// Get max retries based on boolean flag
-inline int getMaxRetries(bool isVideo) {
-    if (isVideo) {
-        return VideoTimeouts::maxRetries;
-    }
-    return ImageTimeouts::maxRetries;
-}
-
-/// Get max retries based on file path
-inline int getMaxRetriesFromPath(std::string_view path) {
-    if (isVideoFile(path)) {
-        return VideoTimeouts::maxRetries;
-    }
-    return ImageTimeouts::maxRetries;
 }
