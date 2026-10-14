@@ -39,7 +39,7 @@ bool ImmichChannel::Config::validate() {
     return false;
 }
 
-bool ImmichChannel::send(std::string_view path) {
+UploadOutcome ImmichChannel::send(std::string_view path) {
     constexpr std::string_view logPrefix = "[Immich] ";
     std::string_view tid;
     bool isVideo;
@@ -54,10 +54,10 @@ bool ImmichChannel::send(std::string_view path) {
         path, logPrefix, tid, isVideo, ::Config::get().immich.uploadScreenshots,
         ::Config::get().immich.uploadVideos);
     if (validationResult == ValidationResult::Error) {
-        return false;
+        return {UploadStatus::Permanent};  // Invalid file, retrying cannot help
     }
     if (validationResult == ValidationResult::Skip) {
-        return true;  // Not an error, just skipping per config
+        return {UploadStatus::Skipped};  // Not an error, just skipping per config
     }
 
     const fs::path filePath{path};
@@ -67,7 +67,7 @@ bool ImmichChannel::send(std::string_view path) {
     if (!curl) {
         // curl_formfree(formpost);
         Logger::get().error() << logPrefix << "curl_easy_init() failed" << endl;
-        return false;
+        return {UploadStatus::Transient};  // Usually memory pressure
     }
 
     // Build URL
@@ -117,24 +117,21 @@ bool ImmichChannel::send(std::string_view path) {
                      NX_CURL_UPLOAD_BUFFERSIZE);
     setCurlTimeouts(curl, isVideo);
 
+    const UploadPolicy& policy = ::Config::get().policy(isVideo);
     Logger::get().debug() << logPrefix << "CURL config - File type: "
                           << (isVideo ? "video" : "image")
-                          << ", Connect timeout: "
-                          << (isVideo ? VideoTimeouts::connectTimeout
-                                      : ImageTimeouts::connectTimeout)
-                          << "s, Idle timeout: "
-                          << (isVideo ? VideoTimeouts::idleTimeout
-                                      : ImageTimeouts::idleTimeout)
-                          << "s, Total timeout: "
-                          << (isVideo ? VideoTimeouts::totalTimeout
-                                      : ImageTimeouts::totalTimeout)
-                          << "s" << endl;
+                          << ", Connect timeout: " << policy.connectTimeout
+                          << "s, Idle timeout: " << policy.idleTimeout
+                          << "s, Total timeout: " << policy.totalTimeout
+                          << "s, Low speed limit: " << policy.lowSpeedLimit
+                          << " B/s" << endl;
     Logger::get().info() << logPrefix << "Starting CURL transfer..." << endl;
 
     const CURLcode res = curl_easy_perform(curl);
 
     if (res == CURLE_OK) {
         long responseCode;
+        curl_off_t retryAfter = 0;
         double requestSize;
         double totalTime;
         double uploadSpeed;
@@ -142,6 +139,8 @@ bool ImmichChannel::send(std::string_view path) {
         curl_easy_getinfo(curl, CURLINFO_SIZE_UPLOAD, &requestSize);
         curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME, &totalTime);
         curl_easy_getinfo(curl, CURLINFO_SPEED_UPLOAD, &uploadSpeed);
+        // Retry-After hint, only set by the server on 429/503 responses
+        curl_easy_getinfo(curl, CURLINFO_RETRY_AFTER, &retryAfter);
 
         Logger::get().info()
             << logPrefix << "Transfer complete - " << requestSize
@@ -156,13 +155,14 @@ bool ImmichChannel::send(std::string_view path) {
         if (responseCode == 200 || responseCode == 201) {
             Logger::get().info()
                 << logPrefix << "Successfully uploaded " << path << endl;
-            return true;
+            return {UploadStatus::Success};
         }
 
         Logger::get().error()
             << logPrefix << "HTTP error - Response code: " << responseCode
             << ", File: " << path << ", Size: " << size << " bytes" << endl;
-        return false;
+        return {classifyHttp(responseCode), responseCode,
+                static_cast<long>(retryAfter)};
     } else {
         double requestSize = 0;
         curl_easy_getinfo(curl, CURLINFO_SIZE_UPLOAD, &requestSize);
@@ -173,6 +173,6 @@ bool ImmichChannel::send(std::string_view path) {
         curl_easy_cleanup(curl);
         curl_mime_free(mime);
         curl_slist_free_all(slist1);
-        return false;
+        return {classifyCurl(res)};
     }
 }

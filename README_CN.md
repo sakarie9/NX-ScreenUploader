@@ -75,7 +75,31 @@ Discord 的配置比 Telegram 和 ntfy.sh 稍微复杂一些。
    - **对于 Discord**：在 `[general]` 中设置 `discord = true`，然后在 `[discord]` 部分配置 `bot_token` 和 `channel_id`
    - **对于 Immich**：在 `[general]` 中设置 `immich = true`，然后在 `[immich]` 部分配置 `server_url` 和 `api_key`
    - 你可以同时启用多个目标
+   - 可选：上传超时与重试可以在 `[upload]` 部分调整，见[上传调优](#上传调优可选)
 3. 将发布内容复制到你的 SD 卡的根目录。
+
+### 上传调优（可选）
+
+`config.ini` 自带的默认值在普通家庭网络下已经够用，只有在上传经常超时或目标服务器限流时才需要改这一部分。所有键都属于文件末尾的 `[upload]` 部分。
+
+| 键 | 默认值 | 说明 |
+| --- | --- | --- |
+| `image_connect_timeout` / `video_connect_timeout` | `10` / `15` | 建立连接的秒数上限。 |
+| `image_idle_timeout` / `video_idle_timeout` | `30` / `60` | 传输速度持续低于 `low_speed_limit` 达到这么多秒时中断本次传输。 |
+| `image_total_timeout` / `video_total_timeout` | `60` / `300` | 单次尝试的秒数硬上限。 |
+| `low_speed_limit` | `1` | 高于该字节/秒即视为传输仍在推进。 |
+| `image_max_attempts` / `video_max_attempts` | `2` / `3` | 每个渠道对同一个文件的总尝试次数，`1` 表示不重试。 |
+| `retry_base_ms` | `1000` | 第一次重试前的等待时间。 |
+| `retry_max_ms` | `15000` | 指数退避的上限。 |
+| `retry_after_cap_ms` | `60000` | 服务器返回 `Retry-After` 时等待时间的上限。 |
+| `image_item_budget` / `video_item_budget` | `0` | 单个文件允许占用上传队列的秒数，`0` 表示不限制。 |
+
+重试的行为：
+
+- 只有「以后可能成功」的失败才会重试：超时、连接错误、HTTP 408/425/429 和 5xx。401、403、404、413 会立即放弃，因此 token 填错或文件过大不会白等几分钟。
+- 等待时间从 `retry_base_ms` 开始指数增长、以 `retry_max_ms` 封顶，并带 ±20% 抖动。服务器返回的 `Retry-After` 优先，但不超过 `retry_after_cap_ms`。
+- 重试分散在正常的检测循环中进行，不会阻塞循环，因此模块在文件等待下一次尝试期间仍能继续检测新截图。用完 `*_max_attempts` 轮（或耗尽单文件预算）后，该文件会被丢弃并记录一条错误日志。
+- 每次尝试都受各自的 total timeout 约束，所以单个文件的最坏耗时约为 `已启用渠道数 × 尝试次数 × total_timeout`。把 `video_item_budget` 设成比如 `600` 可以得到一个硬上限。
 
 ## 开发
 

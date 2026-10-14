@@ -41,7 +41,7 @@ bool DiscordChannel::Config::validate() {
     return false;
 }
 
-bool DiscordChannel::send(std::string_view path) {
+UploadOutcome DiscordChannel::send(std::string_view path) {
     constexpr std::string_view logPrefix = "[Discord] ";
     std::string_view tid;
     bool isVideo;
@@ -57,10 +57,10 @@ bool DiscordChannel::send(std::string_view path) {
                            ::Config::get().discord.uploadScreenshots,
                            ::Config::get().discord.uploadVideos);
     if (validationResult == ValidationResult::Error) {
-        return false;
+        return {UploadStatus::Permanent};  // Invalid file, retrying cannot help
     }
     if (validationResult == ValidationResult::Skip) {
-        return true;  // Not an error, just skipping per config
+        return {UploadStatus::Skipped};  // Not an error, just skipping per config
     }
 
     const fs::path filePath{path};
@@ -70,10 +70,10 @@ bool DiscordChannel::send(std::string_view path) {
     if (f == nullptr) {
         Logger::get().error()
             << logPrefix << "fopen() failed for file: " << path << endl;
-        return false;
+        return {UploadStatus::Permanent};  // Unreadable file, retrying is futile
     }
 
-    UploadInfo ui{f, size};
+    UploadInfo ui{f, size, size};
     struct curl_httppost* formpost = nullptr;
     struct curl_httppost* lastptr = nullptr;
 
@@ -87,7 +87,7 @@ bool DiscordChannel::send(std::string_view path) {
         std::fclose(f);
         curl_formfree(formpost);
         Logger::get().error() << logPrefix << "curl_easy_init() failed" << endl;
-        return false;
+        return {UploadStatus::Transient};  // Usually memory pressure
     }
 
     // Build URL
@@ -124,18 +124,14 @@ bool DiscordChannel::send(std::string_view path) {
                      NX_CURL_UPLOAD_BUFFERSIZE);
     setCurlTimeouts(curl, isVideo);
 
+    const UploadPolicy& policy = ::Config::get().policy(isVideo);
     Logger::get().debug() << logPrefix << "CURL config - File type: "
                           << (isVideo ? "video" : "image")
-                          << ", Connect timeout: "
-                          << (isVideo ? VideoTimeouts::connectTimeout
-                                      : ImageTimeouts::connectTimeout)
-                          << "s, Idle timeout: "
-                          << (isVideo ? VideoTimeouts::idleTimeout
-                                      : ImageTimeouts::idleTimeout)
-                          << "s, Total timeout: "
-                          << (isVideo ? VideoTimeouts::totalTimeout
-                                      : ImageTimeouts::totalTimeout)
-                          << "s" << endl;
+                          << ", Connect timeout: " << policy.connectTimeout
+                          << "s, Idle timeout: " << policy.idleTimeout
+                          << "s, Total timeout: " << policy.totalTimeout
+                          << "s, Low speed limit: " << policy.lowSpeedLimit
+                          << " B/s" << endl;
     Logger::get().info() << logPrefix << "Starting CURL transfer..." << endl;
 
     const CURLcode res = curl_easy_perform(curl);
@@ -143,6 +139,7 @@ bool DiscordChannel::send(std::string_view path) {
 
     if (res == CURLE_OK) {
         long responseCode;
+        curl_off_t retryAfter = 0;
         double requestSize;
         double totalTime;
         double uploadSpeed;
@@ -150,6 +147,8 @@ bool DiscordChannel::send(std::string_view path) {
         curl_easy_getinfo(curl, CURLINFO_SIZE_UPLOAD, &requestSize);
         curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME, &totalTime);
         curl_easy_getinfo(curl, CURLINFO_SPEED_UPLOAD, &uploadSpeed);
+        // Retry-After hint, only set by the server on 429/503 responses
+        curl_easy_getinfo(curl, CURLINFO_RETRY_AFTER, &retryAfter);
 
         Logger::get().info()
             << logPrefix << "Transfer complete - " << requestSize
@@ -165,13 +164,14 @@ bool DiscordChannel::send(std::string_view path) {
         if (responseCode == 200 || responseCode == 201) {
             Logger::get().info()
                 << logPrefix << "Successfully uploaded " << path << endl;
-            return true;
+            return {UploadStatus::Success};
         }
 
         Logger::get().error()
             << logPrefix << "HTTP error - Response code: " << responseCode
             << ", File: " << path << ", Size: " << size << " bytes" << endl;
-        return false;
+        return {classifyHttp(responseCode), responseCode,
+                static_cast<long>(retryAfter)};
     } else {
         double requestSize = 0;
         curl_easy_getinfo(curl, CURLINFO_SIZE_UPLOAD, &requestSize);
@@ -182,6 +182,6 @@ bool DiscordChannel::send(std::string_view path) {
         curl_easy_cleanup(curl);
         curl_formfree(formpost);
         curl_slist_free_all(headers);
-        return false;
+        return {classifyCurl(res)};
     }
 }

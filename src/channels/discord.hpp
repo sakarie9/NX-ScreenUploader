@@ -3,6 +3,8 @@
 #include <string>
 #include <string_view>
 
+#include "upload.hpp"
+
 namespace DiscordChannel {
 
 // Default values for Discord channel configuration
@@ -43,6 +45,6 @@ struct Config {
 };
 
 /// Upload a file to Discord
-[[nodiscard]] bool send(std::string_view path);
+[[nodiscard]] UploadOutcome send(std::string_view path);
 
 }  // namespace DiscordChannel

@@ -3,6 +3,8 @@
 #include <string>
 #include <string_view>
 
+#include "upload.hpp"
+
 // Include all channel headers via the unified list
 #define CHANNEL_INCLUDES
 #include "channels/channels.inc"
@@ -31,6 +33,11 @@ class Config {
         return m_pngshotEnabled;
     }
 
+    /// Upload timeouts and retry policy for images or videos
+    [[nodiscard]] const UploadPolicy& policy(bool isVideo) const noexcept {
+        return isVideo ? m_videoPolicy : m_imagePolicy;
+    }
+
 // Per-channel configuration (defined in channels/channels.inc)
 #define CHANNEL(Ns, M) Ns##Channel::Config M;
 #include "channels/channels.inc"
@@ -48,4 +55,8 @@ class Config {
     bool m_keepLogs{false};
     std::string m_logLevel{"info"};
     bool m_pngshotEnabled{false};
+
+    // Upload tuning, overridable in config.ini
+    UploadPolicy m_imagePolicy{makeUploadPolicy(false)};
+    UploadPolicy m_videoPolicy{makeUploadPolicy(true)};
 };

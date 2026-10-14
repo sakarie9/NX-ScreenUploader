@@ -41,7 +41,7 @@ bool NtfyChannel::Config::validate() {
     return false;
 }
 
-bool NtfyChannel::send(std::string_view path) {
+UploadOutcome NtfyChannel::send(std::string_view path) {
     constexpr std::string_view logPrefix = "[ntfy] ";
     std::string_view tid;
     bool isVideo;
@@ -56,10 +56,10 @@ bool NtfyChannel::send(std::string_view path) {
         path, logPrefix, tid, isVideo, ::Config::get().ntfy.uploadScreenshots,
         ::Config::get().ntfy.uploadVideos);
     if (validationResult == ValidationResult::Error) {
-        return false;
+        return {UploadStatus::Permanent};  // Invalid file, retrying cannot help
     }
     if (validationResult == ValidationResult::Skip) {
-        return true;  // Not an error, just skipping per config
+        return {UploadStatus::Skipped};  // Not an error, just skipping per config
     }
 
     const fs::path filePath{path};
@@ -69,16 +69,16 @@ bool NtfyChannel::send(std::string_view path) {
     if (f == nullptr) {
         Logger::get().error()
             << logPrefix << "fopen() failed for file: " << path << endl;
-        return false;
+        return {UploadStatus::Permanent};  // Unreadable file, retrying is futile
     }
 
-    UploadInfo ui{f, size};
+    UploadInfo ui{f, size, size};
 
     CURL* curl = curl_easy_init();
     if (!curl) {
         std::fclose(f);
         Logger::get().error() << logPrefix << "curl_easy_init() failed" << endl;
-        return false;
+        return {UploadStatus::Transient};  // Usually memory pressure
     }
 
     // Build URL
@@ -89,7 +89,7 @@ bool NtfyChannel::send(std::string_view path) {
         std::fclose(f);
         curl_easy_cleanup(curl);
         Logger::get().error() << logPrefix << "Topic is not configured" << endl;
-        return false;
+        return {UploadStatus::Permanent};
     }
 
     std::string url;
@@ -138,18 +138,14 @@ bool NtfyChannel::send(std::string_view path) {
                      NX_CURL_UPLOAD_BUFFERSIZE);
     setCurlTimeouts(curl, isVideo);
 
+    const UploadPolicy& policy = ::Config::get().policy(isVideo);
     Logger::get().debug() << logPrefix << "CURL config - File type: "
                           << (isVideo ? "video" : "image")
-                          << ", Connect timeout: "
-                          << (isVideo ? VideoTimeouts::connectTimeout
-                                      : ImageTimeouts::connectTimeout)
-                          << "s, Idle timeout: "
-                          << (isVideo ? VideoTimeouts::idleTimeout
-                                      : ImageTimeouts::idleTimeout)
-                          << "s, Total timeout: "
-                          << (isVideo ? VideoTimeouts::totalTimeout
-                                      : ImageTimeouts::totalTimeout)
-                          << "s" << endl;
+                          << ", Connect timeout: " << policy.connectTimeout
+                          << "s, Idle timeout: " << policy.idleTimeout
+                          << "s, Total timeout: " << policy.totalTimeout
+                          << "s, Low speed limit: " << policy.lowSpeedLimit
+                          << " B/s" << endl;
     Logger::get().info() << logPrefix << "Starting CURL transfer..." << endl;
 
     const CURLcode res = curl_easy_perform(curl);
@@ -157,6 +153,7 @@ bool NtfyChannel::send(std::string_view path) {
 
     if (res == CURLE_OK) {
         long responseCode;
+        curl_off_t retryAfter = 0;
         double requestSize;
         double totalTime;
         double uploadSpeed;
@@ -164,6 +161,8 @@ bool NtfyChannel::send(std::string_view path) {
         curl_easy_getinfo(curl, CURLINFO_SIZE_UPLOAD, &requestSize);
         curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME, &totalTime);
         curl_easy_getinfo(curl, CURLINFO_SPEED_UPLOAD, &uploadSpeed);
+        // Retry-After hint, only set by the server on 429/503 responses
+        curl_easy_getinfo(curl, CURLINFO_RETRY_AFTER, &retryAfter);
 
         Logger::get().info()
             << logPrefix << "Transfer complete - " << requestSize
@@ -178,13 +177,14 @@ bool NtfyChannel::send(std::string_view path) {
         if (responseCode == 200) {
             Logger::get().info()
                 << logPrefix << "Successfully uploaded " << path << endl;
-            return true;
+            return {UploadStatus::Success};
         }
 
         Logger::get().error()
             << logPrefix << "HTTP error - Response code: " << responseCode
             << ", File: " << path << ", Size: " << size << " bytes" << endl;
-        return false;
+        return {classifyHttp(responseCode), responseCode,
+                static_cast<long>(retryAfter)};
     } else {
         double requestSize = 0;
         curl_easy_getinfo(curl, CURLINFO_SIZE_UPLOAD, &requestSize);
@@ -194,6 +194,6 @@ bool NtfyChannel::send(std::string_view path) {
             << ", Bytes sent: " << requestSize << ", File: " << path << endl;
         curl_slist_free_all(headers);
         curl_easy_cleanup(curl);
-        return false;
+        return {classifyCurl(res)};
     }
 }

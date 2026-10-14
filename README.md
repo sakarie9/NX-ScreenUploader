@@ -77,7 +77,31 @@ Once you have prepared your upload destination(s), you can install the sysmodule
    - **For Discord**: Set `discord = true` in `[general]`, then configure `bot_token` and `channel_id` in `[discord]` section
    - **For Immich**: Set `immich = true` in `[general]`, then configure `server_url` and `api_key` in `[immich]` section
    - You can enable destinations simultaneously
+   - Optional: upload timeouts and retries can be adjusted in the `[upload]` section, see [Upload Tuning](#upload-tuning-optional)
 3. Copy the release contents to the root of your SD card.
+
+### Upload Tuning (optional)
+
+`config.ini` ships with values that work well on a normal home network, so this section only matters when uploads time out or a destination throttles you. All keys belong to the `[upload]` section at the end of the file.
+
+| Key | Default | Description |
+| --- | --- | --- |
+| `image_connect_timeout` / `video_connect_timeout` | `10` / `15` | Seconds allowed for establishing the connection. |
+| `image_idle_timeout` / `video_idle_timeout` | `30` / `60` | Abort the transfer when it stays below `low_speed_limit` for this many seconds. |
+| `image_total_timeout` / `video_total_timeout` | `60` / `300` | Hard limit in seconds for a single attempt. |
+| `low_speed_limit` | `1` | Bytes per second that still count as progress. |
+| `image_max_attempts` / `video_max_attempts` | `2` / `3` | Total attempts per channel for one file, `1` disables retries. |
+| `retry_base_ms` | `1000` | Delay before the first retry. |
+| `retry_max_ms` | `15000` | Upper bound for the exponential backoff. |
+| `retry_after_cap_ms` | `60000` | Upper bound for a `Retry-After` wait requested by the server. |
+| `image_item_budget` / `video_item_budget` | `0` | Seconds a single file may occupy the upload queue, `0` means unlimited. |
+
+How retries behave:
+
+- Only failures that can succeed later are retried: timeouts, connection errors, HTTP 408/425/429 and 5xx. A 401, 403, 404 or 413 gives up immediately, so a wrong token or an oversized file does not waste minutes.
+- Delays start at `retry_base_ms`, double up to `retry_max_ms` and carry a ±20% jitter. A `Retry-After` header sent by the server takes precedence, capped at `retry_after_cap_ms`.
+- Retries are spread across the regular detection loop instead of blocking it, so the sysmodule keeps detecting new captures while a file waits for its next attempt. Once `*_max_attempts` rounds are used up (or the item budget is exhausted) the file is dropped and an error is logged.
+- Every attempt is bounded by its total timeout, so the worst case for one file is roughly `enabled_channels × attempts × total_timeout`. Set `video_item_budget` (for example to `600`) to enforce a hard ceiling.
 
 ## Development
 
