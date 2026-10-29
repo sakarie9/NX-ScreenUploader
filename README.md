@@ -119,6 +119,25 @@ Check the following links for additional details on how to set up your environme
 - [Homebrew app development](https://switch.homebrew.guide/homebrew_dev/app_dev.html)
 - [Setting up Development Environment](https://switchbrew.org/wiki/Setting_up_Development_Environment)
 
+#### Private toolchain (no pacman, no root)
+
+If you prefer not to install devkitPro packages system-wide,
+`scripts/devkit-toolchain.sh` downloads the official devkitPro packages, verifies
+their SHA-256 checksums and unpacks them into a private prefix
+(`~/.local/share/devkitpro` by default; override with `DEVKITPRO_ROOT` or
+`--prefix DIR`):
+
+```bash
+bash scripts/devkit-toolchain.sh
+export DEVKITPRO="$HOME/.local/share/devkitpro"
+bash scripts/build.sh
+```
+
+Only `curl`, `bsdtar` (libarchive) and `sha256sum` are required. `scripts/build.sh`
+picks the private toolchain up automatically when `DEVKITPRO` is unset, and refuses
+to reuse a `build/` directory that was configured against another toolchain - pass
+`--clean` (or set `CLEAN=1`) to recreate it.
+
 ### Build
 
 > To build the project, you also need [`CMake`](https://cmake.org/).

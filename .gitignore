@@ -93,3 +93,4 @@ release
 *.envrc
 *.DS_Store
 .cache
+.toolchain/

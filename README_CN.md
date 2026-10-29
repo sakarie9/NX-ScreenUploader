@@ -117,6 +117,22 @@ sudo dkp-pacman -S devkitA64 switch-dev switch-curl switch-zlib
 - [自制应用开发](https://switch.homebrew.guide/homebrew_dev/app_dev.html)
 - [设置开发环境](https://switchbrew.org/wiki/Setting_up_Development_Environment)
 
+#### 私有工具链（不用 pacman，也不需要 root）
+
+如果不想把 devkitPro 装进系统，可以运行 `scripts/devkit-toolchain.sh`。它会下载
+devkitPro 官方的软件包、校验 SHA-256，并解压到私有目录（默认
+`~/.local/share/devkitpro`，可用 `DEVKITPRO_ROOT` 或 `--prefix DIR` 修改）：
+
+```bash
+bash scripts/devkit-toolchain.sh
+export DEVKITPRO="$HOME/.local/share/devkitpro"
+bash scripts/build.sh
+```
+
+只需要 `curl`、`bsdtar`（libarchive）和 `sha256sum`。`scripts/build.sh` 在
+`DEVKITPRO` 未设置时会自动使用这个私有工具链；如果 `build/` 目录是用别的工具链
+配置过的，它会拒绝复用，请加 `--clean`（或 `CLEAN=1`）重新配置。
+
 ### 构建
 
 > 要构建项目，你还需要 [`CMake`](https://cmake.org/)。
